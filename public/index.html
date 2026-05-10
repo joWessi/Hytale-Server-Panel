@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hytale Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            panel: {
+              bg: 'var(--bg)',
+              card: 'var(--card)',
+              border: 'var(--border)',
+              accent: 'var(--accent)',
+              'accent-hover': 'var(--accent-hover)',
+              dim: 'var(--dim)',
+              text: 'var(--text)',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-panel-bg text-panel-text min-h-screen font-sans">
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] space-y-2"></div>
+  <div id="app">
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="text-center">
+        <div class="w-10 h-10 border-2 border-panel-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-panel-dim text-sm">Lade Panel...</p>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

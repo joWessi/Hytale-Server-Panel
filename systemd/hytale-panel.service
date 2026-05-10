@@ -1,0 +1,24 @@
+[Unit]
+Description=Hytale Panel
+After=network.target
+
+[Service]
+Type=simple
+User=hytale-panel
+Group=hytale
+WorkingDirectory=/opt/hytale-panel
+EnvironmentFile=/etc/hytale-panel/env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hytale-panel/data /tmp
+ReadOnlyPaths=/home/hytale/server
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

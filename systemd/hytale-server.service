@@ -1,0 +1,24 @@
+[Unit]
+Description=Hytale Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=hytale
+Group=hytale
+WorkingDirectory=/home/hytale/server
+ExecStart=/usr/local/bin/hytale-server.sh
+ExecStop=/usr/local/bin/hytale-stop.sh
+ExecStopPost=/usr/local/bin/hytale-crash-notify.sh
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=60
+Nice=5
+LimitNOFILE=65535
+
+# Runtime directory for FIFO
+RuntimeDirectory=hytale
+RuntimeDirectoryMode=0770
+
+[Install]
+WantedBy=multi-user.target
