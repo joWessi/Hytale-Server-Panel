@@ -3,7 +3,7 @@
 # Hytale Panel v4 - Install Script for Ubuntu 24.04.3 LTS
 #
 # One-liner install from GitHub:
-#   curl -sSL https://raw.githubusercontent.com/j0w3ss/hytale-panel/main/install.sh | sudo bash
+#   curl -sSL https://raw.githubusercontent.com/joWessi/Hytale-Server-Panel/main/install.sh | sudo bash
 #
 # Or clone and run:
 #   git clone https://github.com/j0w3ss/hytale-panel.git
@@ -11,7 +11,7 @@
 #
 set -e
 
-REPO_URL="https://github.com/j0w3ss/hytale-panel.git"
+REPO_URL="https://github.com/joWessi/Hytale-Server-Panel.git"
 PANEL_DIR="/opt/hytale-panel"
 ENV_DIR="/etc/hytale-panel"
 REPO_CLONE_DIR="/tmp/hytale-panel-install"
@@ -216,5 +216,5 @@ echo "Default Login: admin / admin"
 echo "WICHTIG: Passwort sofort aendern!"
 echo ""
 echo "UPDATE: Um das Panel spaeter zu aktualisieren:"
-echo "   curl -sSL https://raw.githubusercontent.com/j0w3ss/hytale-panel/main/install.sh | sudo bash"
+echo "   curl -sSL https://raw.githubusercontent.com/joWessi/Hytale-Server-Panel/main/install.sh | sudo bash"
 echo ""
