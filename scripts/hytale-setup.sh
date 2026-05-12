@@ -95,8 +95,19 @@ case "$ACTION" in
         ;;
 
     install)
+        # ── Disk-space sanity check ─────────────────────────────────
+        # Peak usage: outer game.zip (~3.5GB) + extracted Server.jar + Assets.zip
+        # (~3.5GB) + extracted HytaleAssets (~3.4GB). Require 10GB safety margin.
+        MIN_FREE_KB=$((10 * 1024 * 1024))
+        FREE_KB=$(df -P "$HYTALE_HOME" | awk 'NR==2 {print $4}')
+        if (( FREE_KB < MIN_FREE_KB )); then
+            FREE_GB=$(( FREE_KB / 1024 / 1024 ))
+            die "Nicht genug Speicherplatz: ${FREE_GB} GB frei, mindestens 10 GB benötigt (Hytale-Download ~3.5 GB, Assets entpackt ~3.4 GB)."
+        fi
+        command -v bsdtar >/dev/null \
+            || die "bsdtar nicht gefunden (apt install -y libarchive-tools)"
+
         emit_kv info "Starte Download (patchline: $PATCHLINE)..."
-        # Make sure target dirs exist with correct ownership
         mkdir -p "$SERVER_DIR/logs" "$SERVER_DIR/universe" "$SERVER_DIR/mods" "$ASSETS_DIR"
         chown -R hytale:hytale "$HYTALE_HOME"
 
@@ -107,38 +118,47 @@ case "$ACTION" in
         [[ -s "$DOWNLOAD_ZIP" ]] || die "Download-ZIP fehlt oder ist leer"
         printf '{"type":"download","stage":"done","path":"%s"}\n' "$DOWNLOAD_ZIP"
 
-        # Capture installed version
         VERSION=$(sudo -u hytale -H "$DOWNLOADER" \
             -credentials-path "$CREDS_FILE" -skip-update-check \
             -patchline "$PATCHLINE" -print-version 2>&1 | grep -oE '[0-9a-zA-Z._+-]+' | tail -1)
 
+        # ── Extract outer ZIP ──────────────────────────────────────
+        # Layout as of 2026.01:
+        #   Server/HytaleServer.jar (+ Licenses/)
+        #   Assets.zip   (stripped zip, no EOCDR — bsdtar handles it, `unzip` doesn't)
+        #   start.sh / start.bat (we ignore these)
         printf '{"type":"extract","stage":"start"}\n'
-        # Inspect zip first — Hytale's game.zip layout: HytaleServer.jar at root,
-        # HytaleAssets/ subdir. Extract HytaleServer.jar to SERVER_DIR and
-        # HytaleAssets to ASSETS_DIR's parent.
-        TMP_EXTRACT="$(mktemp -d /tmp/hytale-extract.XXXXXX)"
-        unzip -q -o "$DOWNLOAD_ZIP" -d "$TMP_EXTRACT" || die "Entpacken fehlgeschlagen"
+        emit_kv info "Entpacke Outer-Container..."
+        TMP_EXTRACT=$(sudo -u hytale mktemp -d "$HYTALE_HOME/.hytale-extract.XXXXXX")
+        sudo -u hytale bsdtar -xf "$DOWNLOAD_ZIP" -C "$TMP_EXTRACT" \
+            || die "Outer-ZIP entpacken fehlgeschlagen"
 
-        # Move HytaleServer.jar (any location inside the zip)
+        # Free outer zip space immediately
+        rm -f "$DOWNLOAD_ZIP"
+
+        # Move HytaleServer.jar
         JAR=$(find "$TMP_EXTRACT" -maxdepth 3 -name 'HytaleServer.jar' -print -quit)
         [[ -n "$JAR" ]] || die "HytaleServer.jar im Download nicht gefunden"
-        cp -f "$JAR" "$SERVER_DIR/HytaleServer.jar"
+        sudo -u hytale cp -f "$JAR" "$SERVER_DIR/HytaleServer.jar"
 
-        # Assets: copy whole HytaleAssets directory if present
-        ASSETS_SRC=$(find "$TMP_EXTRACT" -maxdepth 3 -type d -name 'HytaleAssets' -print -quit)
-        if [[ -n "$ASSETS_SRC" ]]; then
-            rm -rf "$ASSETS_DIR"
-            cp -r "$ASSETS_SRC" "$ASSETS_DIR"
+        # ── Extract inner Assets.zip ───────────────────────────────
+        # The inner zip lacks a central directory, so unzip/jar/python-zipfile
+        # all fail with "End of central directory not found". bsdtar (libarchive)
+        # parses local file headers sequentially and copes.
+        ASSETS_ZIP=$(find "$TMP_EXTRACT" -maxdepth 3 -name 'Assets.zip' -print -quit)
+        if [[ -n "$ASSETS_ZIP" ]]; then
+            emit_kv info "Entpacke Assets (~3.4 GB, kann mehrere Minuten dauern)..."
+            sudo -u hytale rm -rf "$ASSETS_DIR"
+            sudo -u hytale mkdir -p "$ASSETS_DIR"
+            sudo -u hytale bsdtar -xf "$ASSETS_ZIP" -C "$ASSETS_DIR" \
+                || emit_kv info "Assets-Extract gab Warnungen aus (kann bei Hytales gestripptem ZIP-Format vorkommen)"
+            rm -f "$ASSETS_ZIP"
+        else
+            emit_kv info "Keine Assets.zip im Download — überspringe Asset-Extract"
         fi
 
-        # Bring along any additional files from zip root (configs, scripts)
-        for f in "$TMP_EXTRACT"/*; do
-            base=$(basename "$f")
-            [[ "$base" == "HytaleServer.jar" || "$base" == "HytaleAssets" ]] && continue
-            [[ -f "$f" ]] && cp -f "$f" "$SERVER_DIR/"
-        done
-
-        rm -rf "$TMP_EXTRACT" "$DOWNLOAD_ZIP"
+        # Clean extract tmp
+        rm -rf "$TMP_EXTRACT"
         chown -R hytale:hytale "$HYTALE_HOME"
 
         [[ -n "$VERSION" ]] && printf '%s\n' "$VERSION" > "$VERSION_FILE" && chown hytale:hytale "$VERSION_FILE"

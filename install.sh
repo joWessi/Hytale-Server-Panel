@@ -77,7 +77,7 @@ fi
 
 echo "[2/11] Pakete installieren..."
 apt update -qq
-apt install -y -qq temurin-25-jdk nodejs nginx certbot python3-certbot-nginx ufw jq unzip git
+apt install -y -qq temurin-25-jdk nodejs nginx certbot python3-certbot-nginx ufw jq unzip libarchive-tools git
 
 echo "[3/11] System-Benutzer anlegen..."
 id hytale &>/dev/null || useradd -m -s /bin/bash hytale
