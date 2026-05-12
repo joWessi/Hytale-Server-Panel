@@ -138,6 +138,19 @@ router.delete('/users/:username', auth, requirePerm('users.manage'), (req, res) 
   res.json({ success: true });
 });
 
+// Pending whitelist requests — auto-detected from server log when a player
+// tried to join but was rejected because they're not on the whitelist.
+const { getPending, clearPending } = require('../services/connection-tracker');
+
+router.get('/whitelist/pending', auth, requirePerm('users.manage'), (req, res) => {
+  res.json({ pending: getPending() });
+});
+
+router.delete('/whitelist/pending/:uuid', auth, requirePerm('users.manage'), (req, res) => {
+  clearPending(req.params.uuid);
+  res.json({ success: true });
+});
+
 router.get('/users/me/whitelist', auth, (req, res) => {
   const users = getUsers();
   const user = users.find(u => u.username === req.user.username);

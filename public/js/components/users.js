@@ -22,8 +22,21 @@ const UUID_RE = /^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}
 let usersCache = [];
 let selectedUser = null;
 
+let pendingInterval = null;
+
 export function renderUsers(container) {
   container.innerHTML = `
+    <div id="pending-card" class="card p-4 mb-4 hidden">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h3 class="font-medium text-amber-400">Whitelist-Anfragen</h3>
+          <p class="text-xs text-panel-dim">Spieler die versucht haben zu joinen, aber nicht auf der Whitelist sind. Klicke "Annehmen" um die UUID einem Benutzer zuzuweisen.</p>
+        </div>
+        <button id="btn-refresh-pending" class="text-xs text-panel-dim hover:text-panel-accent">Aktualisieren</button>
+      </div>
+      <div id="pending-list" class="space-y-2"></div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 card p-4">
         <div class="flex justify-between items-center mb-4">
@@ -80,11 +93,69 @@ export function renderUsers(container) {
   document.getElementById('btn-save-user').addEventListener('click', saveUser);
   document.getElementById('btn-del-user').addEventListener('click', deleteUser);
   document.getElementById('btn-reset-pw').addEventListener('click', resetPassword);
+  document.getElementById('btn-refresh-pending').addEventListener('click', loadPending);
 
   document.getElementById('edit-uuid').addEventListener('input', validateUuidField);
 
   loadUsers();
-  return null;
+  loadPending();
+  pendingInterval = setInterval(loadPending, 15000);
+
+  return () => { clearInterval(pendingInterval); pendingInterval = null; };
+}
+
+async function loadPending() {
+  try {
+    const d = await api('GET', '/whitelist/pending');
+    const card = document.getElementById('pending-card');
+    const list = document.getElementById('pending-list');
+    if (!card || !list) return;
+    if (!d.pending?.length) {
+      card.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    list.innerHTML = d.pending.map(p => {
+      const ago = Math.round((Date.now() - p.lastAttempt) / 60000);
+      return `<div class="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-panel-bg">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium">${escapeHtml(p.name)}</div>
+          <div class="text-xs text-panel-dim font-mono break-all">${escapeHtml(p.uuid)}</div>
+          <div class="text-[10px] text-panel-dim">vor ${ago} Min</div>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <button class="btn-secondary px-3 py-1.5 text-xs" data-assign="${escapeHtml(p.uuid)}" data-name="${escapeHtml(p.name)}">UUID einem User zuweisen</button>
+          <button class="btn-danger px-3 py-1.5 text-xs" data-reject="${escapeHtml(p.uuid)}">Verwerfen</button>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-assign]').forEach(b => {
+      b.addEventListener('click', () => assignPendingToUser(b.dataset.assign, b.dataset.name));
+    });
+    list.querySelectorAll('[data-reject]').forEach(b => {
+      b.addEventListener('click', () => rejectPending(b.dataset.reject));
+    });
+  } catch { /* ignore */ }
+}
+
+async function assignPendingToUser(uuid, name) {
+  // Pre-fill the new-user form with the Hytale name + UUID. Admin sets a
+  // password and the syncWhitelist call after creation pushes the UUID to
+  // the running gameserver automatically.
+  const addPanel = document.getElementById('add-panel');
+  addPanel.classList.remove('hidden');
+  document.getElementById('new-user').value = name;
+  document.getElementById('new-pass').focus();
+  // Stash the UUID so we can apply it right after user creation
+  addPanel.dataset.pendingUuid = uuid;
+  showToast(`Setze Passwort für ${name}, dann auf "Erstellen" klicken`);
+}
+
+async function rejectPending(uuid) {
+  try {
+    await api('DELETE', `/whitelist/pending/${encodeURIComponent(uuid)}`);
+    loadPending();
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 function validateUuidField() {
@@ -181,14 +252,24 @@ async function saveUser() {
 async function createUser() {
   const username = document.getElementById('new-user').value.trim();
   const password = document.getElementById('new-pass').value;
+  const addPanel = document.getElementById('add-panel');
+  const pendingUuid = addPanel.dataset.pendingUuid || '';
   if (!username || !password) { showToast('Benutzername und Passwort erforderlich', 'error'); return; }
   try {
     await api('POST', '/users', { username, password, role: document.getElementById('new-role').value });
+    // If this came from a pending whitelist request, attach the UUID via PATCH
+    // so syncWhitelist picks it up and pushes the runtime command.
+    if (pendingUuid) {
+      try { await api('PATCH', `/users/${encodeURIComponent(username)}`, { uuid: pendingUuid }); } catch {}
+      try { await api('DELETE', `/whitelist/pending/${encodeURIComponent(pendingUuid)}`); } catch {}
+      delete addPanel.dataset.pendingUuid;
+    }
     showToast('Erstellt');
-    document.getElementById('add-panel').classList.add('hidden');
+    addPanel.classList.add('hidden');
     document.getElementById('new-user').value = '';
     document.getElementById('new-pass').value = '';
     loadUsers();
+    loadPending();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
