@@ -7,8 +7,10 @@ const execFileAsync = promisify(execFile);
 const EXEC_OPTS = { timeout: 5000, maxBuffer: 1024 * 1024 };
 
 async function isServerActive() {
+  // Note: don't pass --quiet here, the sudoers allowlist matches the argv
+  // exactly. systemctl already exits 0/3 to signal active/inactive.
   try {
-    await execFileAsync('sudo', ['systemctl', 'is-active', '--quiet', 'hytale-server'], EXEC_OPTS);
+    await execFileAsync('sudo', ['systemctl', 'is-active', 'hytale-server'], EXEC_OPTS);
     return true;
   } catch {
     return false;
