@@ -1,6 +1,6 @@
 // Console with WebSocket live streaming + command history
 import { api } from '../api.js';
-import { escapeHtml, showToast, hasPerm } from '../utils.js';
+import { escapeHtml, showToast, hasPerm, copyToClipboard } from '../utils.js';
 
 let ws = null;
 let fallbackInterval = null;
@@ -162,8 +162,60 @@ function appendLines(output, lines, autoScroll) {
     div.className = 'console-line';
     div.textContent = line;
     frag.appendChild(div);
+    detectDeviceAuth(line);
   });
   output.appendChild(frag);
   while (output.children.length > 500) output.removeChild(output.firstChild);
   if ((autoScroll?.checked !== false) && wasAtBottom) output.scrollTop = output.scrollHeight;
+}
+
+// Watch for Hytale's "DEVICE AUTHORIZATION" block in the live log so we can
+// surface URL + code as a clickable modal instead of leaving the user to
+// scroll a wall of ANSI-coloured text. Triggered by `auth login device`.
+let pendingAuthUrl = null;
+function detectDeviceAuth(line) {
+  // The richer form has the code embedded in a user_code=… URL
+  const m = line.match(/https?:\/\/[^\s]*\?user_code=([A-Za-z0-9_-]+)/);
+  if (m) {
+    showDeviceAuthModal(m[0], m[1]);
+    pendingAuthUrl = null;
+    return;
+  }
+  // Otherwise grab the bare verify URL and wait for the next "Enter code: X" line
+  const urlMatch = line.match(/(https?:\/\/[^\s]*\/oauth2\/device\/verify)\b/);
+  if (urlMatch && !/user_code=/.test(line)) pendingAuthUrl = urlMatch[1];
+  const codeMatch = line.match(/[Ee]nter code[:\s]+([A-Za-z0-9_-]{4,16})/);
+  if (codeMatch && pendingAuthUrl) {
+    showDeviceAuthModal(`${pendingAuthUrl}?user_code=${codeMatch[1]}`, codeMatch[1]);
+    pendingAuthUrl = null;
+  }
+}
+
+function showDeviceAuthModal(url, code) {
+  if (document.getElementById('device-auth-modal')) return; // don't stack
+  const overlay = document.createElement('div');
+  overlay.id = 'device-auth-modal';
+  overlay.className = 'fixed inset-0 z-[10000] bg-black/60 flex items-center justify-center p-4';
+  overlay.innerHTML = `
+    <div class="card p-6 max-w-lg w-full">
+      <h2 class="text-lg font-bold text-panel-accent mb-2">Server-Authentifizierung</h2>
+      <p class="text-sm text-panel-dim mb-4">
+        Der Hytale-Server möchte sich bei deinem Hytale-Account anmelden. Öffne die URL
+        und logge dich ein — der Code ist schon eingebettet, du musst nur bestätigen.
+      </p>
+      <a id="da-link" href="${escapeHtml(url)}" target="_blank" rel="noopener"
+         class="block bg-panel-bg rounded px-3 py-2 font-mono text-xs break-all mb-3 hover:bg-panel-border text-panel-accent">${escapeHtml(url)}</a>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-xs text-panel-dim">Code:</span>
+        <code class="bg-panel-bg rounded px-3 py-1.5 font-mono text-lg tracking-widest">${escapeHtml(code)}</code>
+        <button id="da-copy" class="btn-secondary px-3 py-1.5 text-xs">Kopieren</button>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button id="da-close" class="btn-secondary px-4 py-2 text-sm">Schließen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('da-copy').addEventListener('click', () => copyToClipboard(code));
+  document.getElementById('da-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
