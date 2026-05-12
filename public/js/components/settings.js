@@ -87,6 +87,17 @@ export function renderSettings(container) {
       </div>
 
       <div class="card p-5">
+        <h3 class="font-medium mb-4">Server-Authentifizierung</h3>
+        <p id="auth-status-label" class="text-sm text-panel-dim mb-1">--</p>
+        <p id="auth-status-detail" class="text-xs text-panel-dim mb-3"></p>
+        <div class="flex gap-2 flex-wrap">
+          <button id="btn-auth-refresh" class="btn-secondary px-4 py-2 text-sm">Status prüfen</button>
+          <button id="btn-auth-relogin" class="btn-warning px-4 py-2 text-sm">Erneut anmelden</button>
+        </div>
+        <p class="text-xs text-panel-dim mt-2">Bei laufendem Server: löst <code>auth login device</code> aus. Den Code-Login-Dialog siehst du in der Konsole.</p>
+      </div>
+
+      <div class="card p-5">
         <h3 class="font-medium mb-3">Aktivitäts-Log</h3>
         <p class="text-sm text-panel-dim mb-3">Protokoll aller Benutzeraktionen</p>
         <a href="${downloadUrl('/activity-log/download')}" class="btn-secondary px-4 py-2 text-sm inline-block">Download Log</a>
@@ -112,9 +123,12 @@ export function renderSettings(container) {
   document.getElementById('btn-test-webhook').addEventListener('click', testWebhook);
   document.getElementById('btn-clear-webhook').addEventListener('click', clearWebhook);
   document.getElementById('btn-check-update').addEventListener('click', checkUpdate);
+  document.getElementById('btn-auth-refresh').addEventListener('click', loadAuthStatus);
+  document.getElementById('btn-auth-relogin').addEventListener('click', triggerReauth);
   document.getElementById('s-retention').addEventListener('change', toggleMaxBackups);
   document.getElementById('pw-form').addEventListener('submit', changeOwnPassword);
   loadUpdateStatus();
+  loadAuthStatus();
   return null;
 }
 
@@ -271,6 +285,61 @@ async function checkUpdate() {
 }
 
 function escapeAttr(s) { return String(s).replace(/[<>"&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;'}[c])); }
+
+async function loadAuthStatus() {
+  const label = document.getElementById('auth-status-label');
+  const detail = document.getElementById('auth-status-detail');
+  const relogin = document.getElementById('btn-auth-relogin');
+  try {
+    const d = await api('GET', '/server/auth-status');
+    let text, cls = 'text-sm mb-1';
+    switch (d.state) {
+      case 'authenticated':
+        text = '✓ Authentifiziert';
+        cls += ' text-panel-accent';
+        relogin.disabled = false;
+        break;
+      case 'persisted':
+        text = '✓ Authentifiziert (gespeichert, läuft automatisch)';
+        cls += ' text-panel-accent';
+        relogin.disabled = false;
+        break;
+      case 'persisted_offline':
+        text = '⚪ Server offline — Credentials vorhanden (auth.enc), wird beim Start verwendet';
+        cls += ' text-panel-dim';
+        relogin.disabled = true;
+        break;
+      case 'not_authenticated':
+        text = '✗ Nicht authentifiziert — Spieler können nicht joinen';
+        cls += ' text-red-400';
+        relogin.disabled = !d.running;
+        break;
+      default:
+        text = '? Status unbekannt';
+        cls += ' text-panel-dim';
+        relogin.disabled = !d.running;
+    }
+    label.textContent = text;
+    label.className = cls;
+    const parts = [];
+    if (d.mode) parts.push(`Mode: ${d.mode}`);
+    if (d.profile) parts.push(`Profile: ${d.profile.name} (${d.profile.uuid})`);
+    if (!d.running) parts.push('Server offline');
+    detail.textContent = parts.join(' · ');
+  } catch (e) {
+    label.textContent = '? Status nicht abrufbar';
+    label.className = 'text-sm text-panel-dim mb-1';
+    detail.textContent = e.message;
+  }
+}
+
+async function triggerReauth() {
+  try {
+    await api('POST', '/server/auth-relogin');
+    showToast('Re-Authentifizierung gestartet — öffne die Konsole für den Code-Dialog');
+    setTimeout(() => { location.hash = '#console'; }, 500);
+  } catch (e) { showToast(e.message, 'error'); }
+}
 
 async function changeOwnPassword(e) {
   e.preventDefault();

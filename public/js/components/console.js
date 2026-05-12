@@ -116,9 +116,9 @@ function connectWebSocket(output, autoScroll) {
         const msg = JSON.parse(e.data);
         if (msg.type === 'history') {
           output.innerHTML = '';
-          appendLines(output, msg.data, autoScroll);
+          appendLines(output, msg.data, autoScroll, false); // historic — don't trigger auth modal
         } else if (msg.type === 'lines') {
-          appendLines(output, msg.data, autoScroll);
+          appendLines(output, msg.data, autoScroll, true);
         }
       } catch { /* ignore */ }
     };
@@ -153,7 +153,7 @@ async function loadConsoleHTTP(output, autoScroll) {
   } catch { /* ignore */ }
 }
 
-function appendLines(output, lines, autoScroll) {
+function appendLines(output, lines, autoScroll, live = true) {
   if (!output || !lines?.length) return;
   const wasAtBottom = output.scrollTop + output.clientHeight >= output.scrollHeight - 30;
   const frag = document.createDocumentFragment();
@@ -162,7 +162,7 @@ function appendLines(output, lines, autoScroll) {
     div.className = 'console-line';
     div.textContent = line;
     frag.appendChild(div);
-    detectDeviceAuth(line);
+    if (live) detectDeviceAuth(line); // skip on history replay — old codes are expired
   });
   output.appendChild(frag);
   while (output.children.length > 500) output.removeChild(output.firstChild);
