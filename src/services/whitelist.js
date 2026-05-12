@@ -55,10 +55,31 @@ function syncWhitelist() {
   writeJSON(config.WHITELIST_FILE, wl);
   copyToGameserver();
 
-  const removed = oldList.filter(id => !newList.includes(id));
-  const added = newList.filter(id => !oldList.includes(id));
+  const removed = oldList.filter(id => !newList.some(n => normalizeUuid(n) === normalizeUuid(id)));
+  const added = newList.filter(id => !oldList.some(o => normalizeUuid(o) === normalizeUuid(id)));
   if (removed.length) logActivity('system', `Whitelist sync: ${removed.length} entfernt`);
   if (added.length) logActivity('system', `Whitelist sync: ${added.length} hinzugefügt`);
+
+  // Hytale only re-reads whitelist.json at startup; while it's running, the
+  // in-memory list is authoritative and overwrites our file. Push the diff
+  // through the cmd FIFO so runtime state matches what the panel writes.
+  pushToRunningServer(removed, added);
+}
+
+function pushToRunningServer(removed, added) {
+  if (!removed.length && !added.length) return;
+  if (!fs.existsSync('/run/hytale/cmd.fifo')) return;
+  const { runScript } = require('./server-control');
+  const queue = [
+    ...removed.map(u => `whitelist remove ${u}`),
+    ...added.map(u => `whitelist add ${u}`),
+  ];
+  (async () => {
+    for (const cmd of queue) {
+      try { await runScript(config.SEND_CMD_SCRIPT, [cmd], 5000); }
+      catch { /* ignore — server may have stopped between checks */ }
+    }
+  })();
 }
 
 module.exports = {

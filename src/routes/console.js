@@ -101,14 +101,8 @@ function setupConsoleWebSocket(wss) {
     if (!fs.existsSync(config.CONSOLE_LOG)) return;
     try {
       lastSize = fs.statSync(config.CONSOLE_LOG).size;
-      // fs.watch with inotify on Linux drops IN_MODIFY for append-only writes
-      // (mask comes back as 0xfc6 — IN_ATTRIB|IN_CREATE|... but no IN_MODIFY),
-      // so we miss `>>` appends from the gameserver. fs.watchFile polls stat()
-      // and reliably catches size/mtime changes. 500ms is fast enough for a
-      // live console without burning CPU.
       fs.watchFile(config.CONSOLE_LOG, { interval: 500, persistent: false }, (curr, prev) => {
         if (curr.size === 0 && prev.size > 0) {
-          // log truncated/rotated
           lastSize = 0;
           setTimeout(startFileWatcher, 500);
           return;
@@ -128,12 +122,15 @@ function setupConsoleWebSocket(wss) {
     }
     if (fs.existsSync(dir)) {
       try {
+        // Only react to rename (= file created/removed/rotated). 'change' fires
+        // on every write to console.log too, which would re-install the file
+        // watcher and reset lastSize, so live updates would never be emitted.
         dirWatcher = fs.watch(dir, { persistent: false }, (event, fname) => {
-          if (fname === path.basename(config.CONSOLE_LOG) && (event === 'rename' || event === 'change')) {
+          if (fname === path.basename(config.CONSOLE_LOG) && event === 'rename') {
             startFileWatcher();
           }
         });
-      } catch { /* ignore */ }
+      } catch (e) { console.error('[ws/console] dirWatcher err:', e.message); }
     }
     startFileWatcher();
   }
