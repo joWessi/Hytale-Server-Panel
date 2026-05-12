@@ -7,6 +7,19 @@ const { logActivity } = require('../data/store');
 const { sendDiscord } = require('../services/discord');
 const sc = require('../services/server-control');
 const { markPlannedRestart } = require('../services/planned-restart');
+const { getSettings, saveSettings } = require('../data/settings');
+
+// Re-issue `whitelist enable` after every boot. Hytale's whitelist module in
+// the current alpha does not persist enabled-state across restarts (the JSON's
+// `enabled:true` is also ignored at startup), so we have to push the command
+// each time the server is up. Idempotent + cheap.
+function initWhitelistOnce() {
+  setTimeout(async () => {
+    try {
+      await sc.runScript(config.SEND_CMD_SCRIPT, ['whitelist enable'], 5000);
+    } catch { /* ignore */ }
+  }, 10000);
+}
 
 const router = express.Router();
 
@@ -66,6 +79,7 @@ router.post('/server/:action', auth, requirePerm('server.control'), async (req, 
       }
       sendDiscord('Server wurde gestartet', 3066993);
       logActivity(req.user.username, 'Server gestartet');
+      initWhitelistOnce();
       return res.json({ success: true });
     }
 
@@ -89,6 +103,7 @@ router.post('/server/:action', auth, requirePerm('server.control'), async (req, 
       await sc.systemctl('restart').catch(() => {});
       const ok = await waitForState(true, 60000);
       sendDiscord(ok ? 'Server wurde neugestartet' : 'Neustart fehlgeschlagen', ok ? 3066993 : 15158332);
+      if (ok) initWhitelistOnce();
       return res.json({ success: ok });
     }
   } finally {

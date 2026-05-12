@@ -21,8 +21,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/api', apiLimiter);
 
 app.use(express.static(path.join(__dirname, '..', 'public'), {
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-cache');
+  setHeaders: (res, filePath) => {
+    // JS/HTML must always be fresh — the panel is updated server-side and the
+    // browser otherwise hangs on to old modules until a hard reload.
+    if (/\.(html|js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-store, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
   },
 }));
 

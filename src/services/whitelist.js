@@ -16,7 +16,12 @@ function normalizeUuid(uuid) {
 }
 
 function getWhitelist() {
+  // enabled is always forced true — the panel is a private setup and the
+  // expectation is that only registered users (those with a UUID set) can
+  // join. Hytale's `whitelist status` command is buggy in current alpha but
+  // the JSON `enabled` field IS respected by the access check.
   const wl = readJSON(config.WHITELIST_FILE, { enabled: true, list: [] });
+  wl.enabled = true;
   if (!Array.isArray(wl.list)) wl.list = [];
   return wl;
 }
