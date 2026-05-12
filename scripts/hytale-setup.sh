@@ -41,33 +41,45 @@ id hytale &>/dev/null || die "hytale user existiert nicht"
 chown hytale:hytale "$HYTALE_HOME" 2>/dev/null || true
 
 run_dl() {
-    # Args after this are forwarded to the downloader. Output of the downloader
-    # is parsed line-by-line: device-code prompts get translated into a JSON
-    # oauth event so the panel can render the modal cleanly.
+    # Args after this are forwarded to the downloader. Stream stdout line by
+    # line, translating the device-code prompt into a structured JSON event.
+    # Hytale CLI as of 2026.01 emits something like:
+    #   Please visit the following URL to authenticate:
+    #   https://oauth.accounts.hytale.com/oauth2/device/verify?user_code=abc12345
+    #   Or visit the following URL and enter the code:
+    #   https://oauth.accounts.hytale.com/oauth2/device/verify
+    #   Authorization code: abc12345
+    local oauth_url="" oauth_code=""
     sudo -u hytale -H \
         "$DOWNLOADER" \
         -credentials-path "$CREDS_FILE" \
         -skip-update-check \
         "$@" 2>&1 | while IFS= read -r line; do
-            # Common device-code-flow output forms — keep this loose since the
-            # CLI may rephrase across versions.
-            if [[ "$line" =~ (https?://[^[:space:]]+) ]]; then
-                URL="${BASH_REMATCH[1]}"
-                # Try to extract the user code from the same line or stash it
-                if [[ "$line" =~ code[[:space:]]+([A-Z0-9-]{4,12}) ]]; then
-                    CODE="${BASH_REMATCH[1]}"
-                    printf '{"type":"oauth","url":"%s","code":"%s"}\n' "$URL" "$CODE"
-                else
-                    LAST_URL="$URL"
-                    emit_kv info "$line"
-                fi
-            elif [[ "$line" =~ ([A-Z0-9]{4}-[A-Z0-9]{4}) ]] && [[ -n "${LAST_URL:-}" ]]; then
-                CODE="${BASH_REMATCH[1]}"
-                printf '{"type":"oauth","url":"%s","code":"%s"}\n' "$LAST_URL" "$CODE"
-                LAST_URL=""
-            else
+            # 1) URL with embedded user_code= — capture both at once, prefer this
+            if [[ "$line" =~ (https?://[^[:space:]]*\?user_code=([A-Za-z0-9_-]+)) ]]; then
+                oauth_url="${BASH_REMATCH[1]}"
+                oauth_code="${BASH_REMATCH[2]}"
+                printf '{"type":"oauth","url":"%s","code":"%s"}\n' "$oauth_url" "$oauth_code"
                 emit_kv info "$line"
+                continue
             fi
+            # 2) "Authorization code: XXXX" (fallback if we missed the URL form)
+            if [[ "$line" =~ [Cc]ode:?[[:space:]]+([A-Za-z0-9_-]{4,16}) ]]; then
+                oauth_code="${BASH_REMATCH[1]}"
+                if [[ -z "$oauth_url" && -n "${last_bare_url:-}" ]]; then
+                    oauth_url="$last_bare_url"
+                fi
+                if [[ -n "$oauth_url" ]]; then
+                    printf '{"type":"oauth","url":"%s","code":"%s"}\n' "$oauth_url" "$oauth_code"
+                fi
+                emit_kv info "$line"
+                continue
+            fi
+            # 3) Plain URL line — remember as fallback URL
+            if [[ "$line" =~ (https?://[^[:space:]]+) ]]; then
+                last_bare_url="${BASH_REMATCH[1]}"
+            fi
+            emit_kv info "$line"
         done
     return "${PIPESTATUS[0]}"
 }

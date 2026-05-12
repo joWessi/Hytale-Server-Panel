@@ -21,8 +21,8 @@ TimeoutStopSec=15
 # explicit allowlist (/etc/sudoers.d/hytale-panel) to control systemctl and
 # the hytale-setup.sh installer. Locking out setuid would break those.
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/opt/hytale-panel/data /tmp /home/hytale/server
+# /home/hytale must be writable — credentials + installed-version live there
+ReadWritePaths=/opt/hytale-panel/data /tmp /home/hytale
 PrivateTmp=false
 ProtectKernelTunables=true
 ProtectKernelModules=true
