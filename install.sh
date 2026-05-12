@@ -137,7 +137,8 @@ chmod 700 "$PANEL_DIR/data"
 
 echo "[8/11] NPM Dependencies installieren..."
 cd "$PANEL_DIR"
-sudo -u hytale-panel npm install --omit=dev --silent 2>/dev/null
+# hytale-panel has no $HOME (nologin user); without HOME=/tmp npm silently fails.
+sudo -u hytale-panel HOME=/tmp npm install --omit=dev --silent
 
 echo "[9/11] Scripts installieren..."
 cp "$SOURCE_DIR/scripts/hytale-server.sh" /usr/local/bin/
@@ -164,6 +165,8 @@ fi
 
 echo "[11/11] Nginx + Firewall..."
 if ! $IS_UPDATE; then
+    # WebSocket upgrade map (must live in http{} context)
+    cp "$SOURCE_DIR/nginx/upgrade.conf" /etc/nginx/conf.d/upgrade.conf
     sed "s/PANEL_DOMAIN/${PANEL_DOMAIN}/g" "$SOURCE_DIR/nginx/panel.conf" \
         > "/etc/nginx/sites-available/${PANEL_DOMAIN}"
     ln -sf "/etc/nginx/sites-available/${PANEL_DOMAIN}" /etc/nginx/sites-enabled/

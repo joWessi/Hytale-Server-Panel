@@ -6,7 +6,6 @@ const { getUserByUsername, getUserPermissions } = require('../data/users');
 function cookieOpts() {
   return {
     ...config.COOKIE_OPTS_BASE,
-    secure: process.env.NODE_ENV === 'production',
     maxAge: config.JWT_EXPIRY_SEC * 1000,
   };
 }
@@ -24,10 +23,7 @@ function issueSessionCookie(res, user) {
 }
 
 function clearSessionCookie(res) {
-  res.clearCookie(config.COOKIE_NAME, {
-    ...config.COOKIE_OPTS_BASE,
-    secure: process.env.NODE_ENV === 'production',
-  });
+  res.clearCookie(config.COOKIE_NAME, config.COOKIE_OPTS_BASE);
 }
 
 function auth(req, res, next) {

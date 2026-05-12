@@ -65,10 +65,18 @@ const CRASH_LOOP_WINDOW_MS = 10 * 60 * 1000;
 // Auth
 const JWT_EXPIRY_SEC = 24 * 60 * 60;
 const COOKIE_NAME = 'hytale_session';
+// SECURE_COOKIE: explicit override, defaults to NODE_ENV=production.
+// Set SECURE_COOKIE=false when running behind plain HTTP (e.g. IP-only setup
+// without TLS), otherwise the browser will refuse to send the session cookie.
+const SECURE_COOKIE = process.env.SECURE_COOKIE !== undefined
+  ? process.env.SECURE_COOKIE === 'true'
+  : process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTS_BASE = {
   httpOnly: true,
   sameSite: 'strict',
   path: '/',
+  secure: SECURE_COOKIE,
 };
 const BCRYPT_ROUNDS = 12;
 
