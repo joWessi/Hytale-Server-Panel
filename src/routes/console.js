@@ -83,7 +83,6 @@ function setupConsoleWebSocket(wss) {
   async function onChange() {
     try {
       const stat = fs.statSync(config.CONSOLE_LOG);
-      // Rotated/truncated: reset and re-read tail
       if (stat.size < lastSize) lastSize = 0;
       if (stat.size <= lastSize) return;
       const data = await readSince(lastSize);
@@ -94,18 +93,29 @@ function setupConsoleWebSocket(wss) {
   }
 
   function startFileWatcher() {
-    try { fileWatcher?.close(); } catch {}
+    try {
+      if (fileWatcher === 'polling') fs.unwatchFile(config.CONSOLE_LOG);
+      else fileWatcher?.close?.();
+    } catch {}
     fileWatcher = null;
     if (!fs.existsSync(config.CONSOLE_LOG)) return;
     try {
       lastSize = fs.statSync(config.CONSOLE_LOG).size;
-      fileWatcher = fs.watch(config.CONSOLE_LOG, { persistent: false }, (event) => {
-        if (event === 'change') onChange();
-        if (event === 'rename') {
-          // file rotated away
+      // fs.watch with inotify on Linux drops IN_MODIFY for append-only writes
+      // (mask comes back as 0xfc6 — IN_ATTRIB|IN_CREATE|... but no IN_MODIFY),
+      // so we miss `>>` appends from the gameserver. fs.watchFile polls stat()
+      // and reliably catches size/mtime changes. 500ms is fast enough for a
+      // live console without burning CPU.
+      fs.watchFile(config.CONSOLE_LOG, { interval: 500, persistent: false }, (curr, prev) => {
+        if (curr.size === 0 && prev.size > 0) {
+          // log truncated/rotated
+          lastSize = 0;
           setTimeout(startFileWatcher, 500);
+          return;
         }
+        if (curr.size !== prev.size || curr.mtimeMs !== prev.mtimeMs) onChange();
       });
+      fileWatcher = 'polling';
     } catch { /* ignore */ }
   }
 
@@ -132,7 +142,10 @@ function setupConsoleWebSocket(wss) {
     if (!watcherActive) return;
     const stillHasClients = [...wss.clients].some(c => c.consoleAuthed && c.readyState === 1);
     if (stillHasClients) return;
-    try { fileWatcher?.close(); } catch {}
+    try {
+      if (fileWatcher === 'polling') fs.unwatchFile(config.CONSOLE_LOG);
+      else fileWatcher?.close?.();
+    } catch {}
     try { dirWatcher?.close(); } catch {}
     fileWatcher = null;
     dirWatcher = null;
@@ -199,7 +212,10 @@ function setupConsoleWebSocket(wss) {
 
   wss.on('close', () => {
     clearInterval(heartbeat);
-    try { fileWatcher?.close(); } catch {}
+    try {
+      if (fileWatcher === 'polling') fs.unwatchFile(config.CONSOLE_LOG);
+      else fileWatcher?.close?.();
+    } catch {}
     try { dirWatcher?.close(); } catch {}
     fileWatcher = null;
     dirWatcher = null;
