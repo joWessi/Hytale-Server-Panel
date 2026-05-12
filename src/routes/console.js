@@ -22,7 +22,7 @@ router.get('/console', auth, requirePerm('console.read'), (req, res) => {
 
 router.post('/console', auth, requirePerm('console.write'), (req, res) => {
   const cmd = sanitizeCommand(req.body?.command);
-  if (!cmd) return res.status(400).json({ error: 'Ungueltiger Befehl' });
+  if (!cmd) return res.status(400).json({ error: 'Ungültiger Befehl' });
   runScript(config.SEND_CMD_SCRIPT, [cmd], 5000).catch(() => {});
   logActivity(req.user.username, `Befehl: ${cmd}`);
   res.json({ success: true });

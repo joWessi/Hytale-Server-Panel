@@ -23,12 +23,12 @@ echo "============================================"
 
 # ── Pre-checks ──────────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
-    echo "FEHLER: Bitte als root ausfuehren (sudo ./install.sh)"
+    echo "FEHLER: Bitte als root ausführen (sudo ./install.sh)"
     exit 1
 fi
 
 if ! grep -q "Ubuntu 24" /etc/os-release 2>/dev/null; then
-    echo "WARNUNG: Dieses Script ist fuer Ubuntu 24.04 optimiert!"
+    echo "WARNUNG: Dieses Script ist für Ubuntu 24.04 optimiert!"
     read -p "Trotzdem fortfahren? (j/n) " -n 1 -r
     echo
     [[ ! $REPLY =~ ^[Jj]$ ]] && exit 1
@@ -58,7 +58,7 @@ else
     echo "Neuinstallation v${PKG_VERSION}"
     read -p "Panel-Domain (z.B. panel.dirt.haus): " PANEL_DOMAIN
     [ -z "$PANEL_DOMAIN" ] && { echo "FEHLER: Domain ist erforderlich."; exit 1; }
-    read -p "Discord Webhook URL (leer fuer keinen): " DISCORD_WEBHOOK
+    read -p "Discord Webhook URL (leer für keinen): " DISCORD_WEBHOOK
 fi
 echo ""
 
@@ -83,7 +83,7 @@ echo "[3/11] System-Benutzer anlegen..."
 id hytale &>/dev/null || useradd -m -s /bin/bash hytale
 id hytale-panel &>/dev/null || useradd -r -s /usr/sbin/nologin -G hytale hytale-panel
 
-echo "[4/11] Sudoers fuer Panel-User..."
+echo "[4/11] Sudoers für Panel-User..."
 cat > /etc/sudoers.d/hytale-panel << 'SUDOERS'
 hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl start hytale-server
 hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl stop hytale-server
@@ -99,7 +99,7 @@ if $IS_UPDATE; then
     if ! grep -q '^CRASH_NOTIFY_TOKEN=' "$ENV_DIR/env"; then
         CRASH_NOTIFY_TOKEN=$(openssl rand -hex 32)
         echo "CRASH_NOTIFY_TOKEN=${CRASH_NOTIFY_TOKEN}" >> "$ENV_DIR/env"
-        echo "  CRASH_NOTIFY_TOKEN ergaenzt."
+        echo "  CRASH_NOTIFY_TOKEN ergänzt."
     fi
 else
     JWT_SECRET=$(openssl rand -base64 48)
@@ -218,10 +218,10 @@ if ! $IS_UPDATE; then
     echo "   systemctl start hytale-panel"
     echo ""
     echo "Panel:        https://${PANEL_DOMAIN}"
-    echo "Default Login: admin / admin  (muss beim ersten Login geaendert werden)"
+    echo "Default Login: admin / admin  (muss beim ersten Login geändert werden)"
     echo ""
 fi
 
-echo "UPDATE (kuenftig):"
+echo "UPDATE (künftig):"
 echo "   curl -sSL https://raw.githubusercontent.com/joWessi/Hytale-Server-Panel/main/install.sh | sudo bash"
 echo ""

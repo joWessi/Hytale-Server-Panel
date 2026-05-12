@@ -40,7 +40,7 @@ export function renderConsole(container) {
       <div id="console-output" class="console-box flex-1 rounded-lg p-3 overflow-y-auto mb-3"></div>
       ${canWrite ? `
         <div class="flex gap-2">
-          <input type="text" id="cmd-input" class="flex-1 px-3 py-2.5 text-sm font-mono" placeholder="Befehl eingeben... (Pfeil hoch/runter fuer Verlauf)" autocomplete="off">
+          <input type="text" id="cmd-input" class="flex-1 px-3 py-2.5 text-sm font-mono" placeholder="Befehl eingeben... (Pfeil hoch/runter für Verlauf)" autocomplete="off">
           <button id="btn-send" class="btn-primary px-4 py-2.5 text-sm">Senden</button>
         </div>` : '<div class="text-xs text-panel-dim">Nur Lesen</div>'}
     </div>`;

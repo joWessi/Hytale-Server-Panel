@@ -28,7 +28,7 @@ async function load() {
     const d = await api('GET', '/backups');
     const info = document.getElementById('backup-info');
     if (d.retention === 'gfs') {
-      info.textContent = `Strategie: GFS (7 taeglich, 4 woechentlich, 6 monatlich)`;
+      info.textContent = `Strategie: GFS (7 täglich, 4 wöchentlich, 6 monatlich)`;
     } else {
       info.textContent = `Strategie: FIFO, max. ${d.maxBackups} Backups`;
     }
@@ -48,7 +48,7 @@ async function load() {
         <div class="flex gap-2 flex-shrink-0">
           <a href="${downloadUrl(`/backups/download?name=${encodeURIComponent(b.name)}`)}" class="btn-secondary px-3 py-1.5 text-xs">Download</a>
           ${canManage ? `<button class="btn-warning px-3 py-1.5 text-xs" data-restore="${escapeHtml(b.name)}">Restore</button>` : ''}
-          ${canManage ? `<button class="btn-danger px-3 py-1.5 text-xs" data-delete="${escapeHtml(b.name)}">Loeschen</button>` : ''}
+          ${canManage ? `<button class="btn-danger px-3 py-1.5 text-xs" data-delete="${escapeHtml(b.name)}">Löschen</button>` : ''}
         </div>
       </div>`).join('');
 
@@ -67,19 +67,19 @@ async function createBackup() {
 }
 
 async function del(name) {
-  const ok = await confirmDialog(`Backup "${name}" loeschen?`, { danger: true, ok: 'Loeschen' });
+  const ok = await confirmDialog(`Backup "${name}" löschen?`, { danger: true, ok: 'Löschen' });
   if (!ok) return;
-  try { await api('DELETE', `/backups/${encodeURIComponent(name)}`); showToast('Geloescht'); load(); }
+  try { await api('DELETE', `/backups/${encodeURIComponent(name)}`); showToast('Gelöscht'); load(); }
   catch (e) { showToast(e.message, 'error'); }
 }
 
 async function restore(name) {
   const ok = await confirmDialog(
-    'Backup wiederherstellen?\nServer wird gestoppt und Welt ueberschrieben!',
+    'Backup wiederherstellen?\nServer wird gestoppt und Welt überschrieben!',
     { danger: true, ok: 'Wiederherstellen' }
   );
   if (!ok) return;
-  showToast('Restore laeuft...');
+  showToast('Restore läuft...');
   try {
     const d = await api('POST', `/backups/restore/${encodeURIComponent(name)}`);
     if (d.success) showToast('Wiederhergestellt');

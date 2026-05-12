@@ -18,7 +18,7 @@ export function renderConfig(container) {
       </div>
       <div class="lg:col-span-2 card p-4 flex flex-col">
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-          <span id="cfg-filename" class="text-sm text-panel-dim font-mono">Datei auswaehlen</span>
+          <span id="cfg-filename" class="text-sm text-panel-dim font-mono">Datei auswählen</span>
           <div class="flex gap-2 items-center">
             <div id="cfg-mode" class="flex gap-1 text-xs hidden">
               <button data-mode="text" class="px-2 py-0.5 rounded bg-panel-accent/30 text-panel-accent">Text</button>

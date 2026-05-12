@@ -55,14 +55,14 @@ export function renderSettings(container) {
             <input type="number" id="s-max" min="1" max="100" class="w-full mt-1 px-3 py-2.5">
           </div>
         </div>
-        <p class="text-xs text-panel-dim mt-2">GFS = Grandfather/Father/Son: 7 taegliche + 4 woechentliche + 6 monatliche behalten.</p>
+        <p class="text-xs text-panel-dim mt-2">GFS = Grandfather/Father/Son: 7 tägliche + 4 wöchentliche + 6 monatliche behalten.</p>
       </div>
 
       <div class="card p-5">
         <h3 class="font-medium mb-4">Discord Webhook</h3>
         <p id="webhook-status" class="text-sm text-panel-dim mb-3">--</p>
         <button id="btn-test-webhook" class="btn-secondary px-4 py-2 text-sm">Testen</button>
-        <p class="text-xs text-panel-dim mt-2">Webhook-URL ueber Umgebungsvariable DISCORD_WEBHOOK in /etc/hytale-panel/env.</p>
+        <p class="text-xs text-panel-dim mt-2">Webhook-URL über Umgebungsvariable DISCORD_WEBHOOK in /etc/hytale-panel/env.</p>
       </div>
 
       <div class="card p-5">
@@ -74,7 +74,7 @@ export function renderSettings(container) {
       </div>
 
       <div class="card p-5">
-        <h3 class="font-medium mb-3">Aktivitaets-Log</h3>
+        <h3 class="font-medium mb-3">Aktivitäts-Log</h3>
         <p class="text-sm text-panel-dim mb-3">Protokoll aller Benutzeraktionen</p>
         <a href="${downloadUrl('/activity-log/download')}" class="btn-secondary px-4 py-2 text-sm inline-block">Download Log</a>
       </div>
@@ -82,12 +82,12 @@ export function renderSettings(container) {
       <button id="btn-save-settings" class="btn-primary w-full py-3 text-sm">Speichern</button>
 
       <div class="card p-5">
-        <h3 class="font-medium mb-4">Eigenes Passwort aendern</h3>
+        <h3 class="font-medium mb-4">Eigenes Passwort ändern</h3>
         <form id="pw-form" class="space-y-3">
           <input type="password" id="pw-current" class="w-full px-3 py-2.5 text-sm" placeholder="Aktuelles Passwort" required>
           <input type="password" id="pw-new" class="w-full px-3 py-2.5 text-sm" placeholder="Neues Passwort (min. 8 Zeichen)" minlength="8" required>
           <input type="password" id="pw-new2" class="w-full px-3 py-2.5 text-sm" placeholder="Wiederholen" minlength="8" required>
-          <button type="submit" class="btn-warning px-4 py-2 text-sm">Passwort aendern</button>
+          <button type="submit" class="btn-warning px-4 py-2 text-sm">Passwort ändern</button>
         </form>
       </div>
     </div>`;
@@ -196,11 +196,11 @@ async function changeOwnPassword(e) {
   const cur = document.getElementById('pw-current').value;
   const a = document.getElementById('pw-new').value;
   const b = document.getElementById('pw-new2').value;
-  if (a !== b) { showToast('Passwoerter stimmen nicht ueberein', 'error'); return; }
+  if (a !== b) { showToast('Passwörter stimmen nicht überein', 'error'); return; }
   if (a.length < 8) { showToast('Mindestens 8 Zeichen', 'error'); return; }
   try {
     await api('POST', '/users/me/password', { currentPassword: cur, newPassword: a });
-    showToast('Passwort geaendert - du wirst abgemeldet');
+    showToast('Passwort geändert - du wirst abgemeldet');
     setTimeout(() => logout(), 1200);
   } catch (e) { showToast(e.message, 'error'); }
 }

@@ -61,14 +61,14 @@ function showPasswordChangeBlocker(appEl, user) {
   appEl.innerHTML = `
     <div class="min-h-screen flex items-center justify-center p-4">
       <div class="card p-8 w-full max-w-md">
-        <h1 class="text-xl font-bold mb-1">Passwort aendern</h1>
-        <p class="text-sm text-panel-dim mb-6">Hallo ${user.username}, du musst dein Passwort aendern bevor du das Panel nutzen kannst.</p>
+        <h1 class="text-xl font-bold mb-1">Passwort ändern</h1>
+        <p class="text-sm text-panel-dim mb-6">Hallo ${user.username}, du musst dein Passwort ändern bevor du das Panel nutzen kannst.</p>
         <form id="pwc-form" class="space-y-3">
           <input type="password" id="pwc-current" class="w-full px-3 py-2.5 text-sm" placeholder="Aktuelles Passwort" required>
           <input type="password" id="pwc-new" class="w-full px-3 py-2.5 text-sm" placeholder="Neues Passwort (min. 8 Zeichen)" minlength="8" required>
           <input type="password" id="pwc-new2" class="w-full px-3 py-2.5 text-sm" placeholder="Neues Passwort wiederholen" minlength="8" required>
           <p id="pwc-err" class="text-red-400 text-sm hidden"></p>
-          <button type="submit" class="btn-primary w-full py-2.5 text-sm">Aendern</button>
+          <button type="submit" class="btn-primary w-full py-2.5 text-sm">Ändern</button>
         </form>
         <button id="pwc-logout" class="mt-4 text-xs text-panel-dim hover:text-panel-text w-full text-center">Abmelden</button>
       </div>
@@ -80,10 +80,10 @@ function showPasswordChangeBlocker(appEl, user) {
     const cur = document.getElementById('pwc-current').value;
     const a = document.getElementById('pwc-new').value;
     const b = document.getElementById('pwc-new2').value;
-    if (a !== b) { err.textContent = 'Neue Passwoerter stimmen nicht ueberein'; err.classList.remove('hidden'); return; }
+    if (a !== b) { err.textContent = 'Neue Passwörter stimmen nicht überein'; err.classList.remove('hidden'); return; }
     try {
       await api('POST', '/users/me/password', { currentPassword: cur, newPassword: a });
-      showToast('Passwort geaendert - bitte neu anmelden');
+      showToast('Passwort geändert - bitte neu anmelden');
       setTimeout(() => location.reload(), 800);
     } catch (e) {
       err.textContent = e.message;
@@ -134,7 +134,7 @@ async function checkSessionExpiry() {
   if (!warnShown && inactiveMin >= sessionTimeout - 1) {
     warnShown = true;
     const stay = await confirmDialog(
-      `Deine Session laeuft in 1 Minute ab.\nWeiterhin angemeldet bleiben?`,
+      `Deine Session läuft in 1 Minute ab.\nWeiterhin angemeldet bleiben?`,
       { ok: 'Bleiben', cancel: 'Abmelden' }
     );
     if (stay) {

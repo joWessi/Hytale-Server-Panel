@@ -50,7 +50,7 @@ router.get('/config/read', auth, requirePerm('config.read'), (req, res) => {
   try {
     const stat = fs.statSync(fullPath);
     if (stat.size > 5 * 1024 * 1024) {
-      return res.status(413).json({ error: 'Datei zu gross (>5 MB)' });
+      return res.status(413).json({ error: 'Datei zu groß (>5 MB)' });
     }
     res.json({
       content: fs.readFileSync(fullPath, 'utf8'),
@@ -66,7 +66,7 @@ router.post('/config/write', auth, requirePerm('config.write'), (req, res) => {
   if (!file) return res.status(400).json({ error: 'Keine Datei angegeben' });
   if (typeof content !== 'string') return res.status(400).json({ error: 'Inhalt fehlt' });
   if (!cfg.TEXT_EXTENSIONS.some(ext => file.endsWith(ext))) {
-    return res.status(400).json({ error: 'Ungueltiger Dateityp' });
+    return res.status(400).json({ error: 'Ungültiger Dateityp' });
   }
 
   const fullPath = resolveServerPath(file);
@@ -86,7 +86,7 @@ router.post('/config/write', auth, requirePerm('config.write'), (req, res) => {
     const tmp = fullPath + '.tmp';
     fs.writeFileSync(tmp, content);
     fs.renameSync(tmp, fullPath);
-    logActivity(req.user.username, `Config geaendert: ${file}`);
+    logActivity(req.user.username, `Config geändert: ${file}`);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: 'Schreibfehler' });

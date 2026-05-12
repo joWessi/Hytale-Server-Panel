@@ -46,7 +46,7 @@ if [[ -n "$DISCORD_WEBHOOK" && "$DISCORD_WEBHOOK" != "null" ]]; then
     TIMESTAMP=$(date "+%d.%m.%Y %H:%M:%S")
     curl -s --max-time 5 -X POST "$DISCORD_WEBHOOK" \
         -H "Content-Type: application/json" \
-        -d "{\"embeds\":[{\"title\":\"Server Crash\",\"description\":\"Server abgestuerzt (${REASON}), wird neugestartet.\",\"color\":15158332,\"footer\":{\"text\":\"$TIMESTAMP\"}}]}" \
+        -d "{\"embeds\":[{\"title\":\"Server Crash\",\"description\":\"Server abgestürzt (${REASON}), wird neugestartet.\",\"color\":15158332,\"footer\":{\"text\":\"$TIMESTAMP\"}}]}" \
         >/dev/null 2>&1 || true
 fi
 

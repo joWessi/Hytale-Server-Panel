@@ -41,7 +41,7 @@ function auth(req, res, next) {
     }
 
     if ((payload.tokenVersion || 0) !== (user.tokenVersion || 0)) {
-      return res.status(401).json({ error: 'Token ungueltig' });
+      return res.status(401).json({ error: 'Token ungültig' });
     }
 
     req.user = {
@@ -61,7 +61,7 @@ function auth(req, res, next) {
 
     next();
   } catch {
-    res.status(401).json({ error: 'Token ungueltig' });
+    res.status(401).json({ error: 'Token ungültig' });
   }
 }
 

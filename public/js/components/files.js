@@ -80,7 +80,7 @@ async function uploadFiles(files) {
 async function mkdir() {
   const name = await promptDialog('Name des neuen Ordners:', '', { ok: 'Erstellen' });
   if (!name) return;
-  if (/[\/\\\0]/.test(name)) { showToast('Ungueltiger Name', 'error'); return; }
+  if (/[\/\\\0]/.test(name)) { showToast('Ungültiger Name', 'error'); return; }
   const newPath = (currentPath === '/' ? '' : currentPath) + '/' + name;
   try {
     await api('POST', '/files/mkdir', { path: newPath });
@@ -135,13 +135,13 @@ async function loadFiles(p) {
       const iconColor = f.isDirectory ? 'text-amber-400' : 'text-panel-dim';
       const sizeOrCount = f.isDirectory ? '' : `<span class="text-xs text-panel-dim flex-shrink-0 hidden sm:inline">${formatSize(f.size)}</span>`;
       const mtime = f.mtime ? `<span class="text-xs text-panel-dim flex-shrink-0 hidden md:inline">${escapeHtml(formatTimeAgo(f.mtime))}</span>` : '';
-      const protectedBadge = f.protected ? '<span class="text-[10px] text-amber-400 ml-1 px-1.5 py-0.5 rounded bg-amber-400/10">geschuetzt</span>' : '';
+      const protectedBadge = f.protected ? '<span class="text-[10px] text-amber-400 ml-1 px-1.5 py-0.5 rounded bg-amber-400/10">geschützt</span>' : '';
 
       const dirClick = f.isDirectory ? `data-dir="${escapeHtml(fp)}"` : '';
       const cls = f.isDirectory ? 'cursor-pointer hover:bg-panel-border/50' : '';
       const actions = canWrite && !f.protected ? `
         <button class="text-xs text-panel-dim hover:text-panel-accent px-2" data-rename="${escapeHtml(fp)}">Umbenennen</button>
-        <button class="text-xs text-red-400 hover:text-red-300 px-2" data-delete="${escapeHtml(fp)}" data-name="${escapeHtml(f.name)}" data-isdir="${f.isDirectory}">Loeschen</button>
+        <button class="text-xs text-red-400 hover:text-red-300 px-2" data-delete="${escapeHtml(fp)}" data-name="${escapeHtml(f.name)}" data-isdir="${f.isDirectory}">Löschen</button>
       ` : '';
       const dl = !f.isDirectory ? `<a href="${downloadUrl(`/files/download?path=${encodeURIComponent(fp)}`)}" class="text-panel-accent hover:underline text-xs flex-shrink-0">Download</a>` : '';
 
@@ -176,9 +176,9 @@ async function loadFiles(p) {
 
 async function renameFile(fp) {
   const oldName = fp.split('/').pop();
-  const newName = await promptDialog(`Neuer Name fuer "${oldName}":`, oldName, { ok: 'Umbenennen' });
+  const newName = await promptDialog(`Neuer Name für "${oldName}":`, oldName, { ok: 'Umbenennen' });
   if (!newName || newName === oldName) return;
-  if (/[\/\\\0]/.test(newName)) { showToast('Ungueltiger Name', 'error'); return; }
+  if (/[\/\\\0]/.test(newName)) { showToast('Ungültiger Name', 'error'); return; }
   const parent = fp.split('/').slice(0, -1).join('/') || '/';
   const to = (parent === '/' ? '' : parent) + '/' + newName;
   try {
@@ -190,13 +190,13 @@ async function renameFile(fp) {
 
 async function deleteFile(fp, name, isDir) {
   const ok = await confirmDialog(
-    `${isDir ? 'Ordner' : 'Datei'} "${name}" wirklich loeschen?${isDir ? '\n(Inkl. allem Inhalt!)' : ''}`,
-    { danger: true, ok: 'Loeschen' }
+    `${isDir ? 'Ordner' : 'Datei'} "${name}" wirklich löschen?${isDir ? '\n(Inkl. allem Inhalt!)' : ''}`,
+    { danger: true, ok: 'Löschen' }
   );
   if (!ok) return;
   try {
     await api('DELETE', '/files', { path: fp });
-    showToast('Geloescht');
+    showToast('Gelöscht');
     loadFiles(currentPath);
   } catch (e) { showToast(e.message, 'error'); }
 }

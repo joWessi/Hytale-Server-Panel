@@ -28,14 +28,14 @@ export function renderUsers(container) {
       <div class="lg:col-span-2 card p-4">
         <div class="flex justify-between items-center mb-4">
           <h3 class="font-medium">Benutzer</h3>
-          <button id="btn-toggle-add" class="btn-primary px-3 py-1.5 text-sm">Hinzufuegen</button>
+          <button id="btn-toggle-add" class="btn-primary px-3 py-1.5 text-sm">Hinzufügen</button>
         </div>
         <div id="user-list" class="space-y-1"></div>
       </div>
       <div class="space-y-4">
         <div id="edit-panel" class="card p-4">
           <h3 class="font-medium mb-3">Bearbeiten</h3>
-          <div id="edit-user-name" class="text-sm text-panel-dim mb-3">Waehle einen Benutzer</div>
+          <div id="edit-user-name" class="text-sm text-panel-dim mb-3">Wähle einen Benutzer</div>
           <div class="space-y-3">
             <div>
               <label class="text-xs text-panel-dim uppercase">Rolle</label>
@@ -57,7 +57,7 @@ export function renderUsers(container) {
             <div class="flex gap-2">
               <button id="btn-save-user" class="flex-1 btn-primary py-2 text-sm">Speichern</button>
               <button id="btn-reset-pw" class="btn-warning px-3 py-2 text-sm" disabled>Passwort</button>
-              <button id="btn-del-user" class="btn-danger px-3 py-2 text-sm" disabled>Loeschen</button>
+              <button id="btn-del-user" class="btn-danger px-3 py-2 text-sm" disabled>Löschen</button>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ function validateUuidField() {
   const v = input.value.trim();
   if (!v) { err.classList.add('hidden'); return true; }
   if (!UUID_RE.test(v)) {
-    err.textContent = 'Ungueltiges Format';
+    err.textContent = 'Ungültiges Format';
     err.classList.remove('hidden');
     return false;
   }
@@ -161,7 +161,7 @@ function showEditUser(username) {
 
 async function saveUser() {
   if (!selectedUser) return;
-  if (!validateUuidField()) { showToast('UUID ungueltig', 'error'); return; }
+  if (!validateUuidField()) { showToast('UUID ungültig', 'error'); return; }
 
   const data = { uuid: document.getElementById('edit-uuid').value };
   if (selectedUser !== 'admin') {
@@ -194,13 +194,13 @@ async function createUser() {
 
 async function deleteUser() {
   if (!selectedUser || selectedUser === 'admin') return;
-  const ok = await confirmDialog(`Benutzer "${selectedUser}" loeschen?`, { danger: true, ok: 'Loeschen' });
+  const ok = await confirmDialog(`Benutzer "${selectedUser}" löschen?`, { danger: true, ok: 'Löschen' });
   if (!ok) return;
   try {
     await api('DELETE', `/users/${selectedUser}`);
-    showToast('Geloescht');
+    showToast('Gelöscht');
     selectedUser = null;
-    document.getElementById('edit-user-name').textContent = 'Waehle einen Benutzer';
+    document.getElementById('edit-user-name').textContent = 'Wähle einen Benutzer';
     loadUsers();
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -208,7 +208,7 @@ async function deleteUser() {
 async function resetPassword() {
   if (!selectedUser) return;
   const pw = await promptDialog(
-    `Neues Passwort fuer "${selectedUser}" (min. 8 Zeichen).\nDer Benutzer muss es beim naechsten Login aendern.`,
+    `Neues Passwort für "${selectedUser}" (min. 8 Zeichen).\nDer Benutzer muss es beim nächsten Login ändern.`,
     '', { type: 'password', ok: 'Setzen' }
   );
   if (!pw) return;

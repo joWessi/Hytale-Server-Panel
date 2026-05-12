@@ -17,7 +17,7 @@ router.post('/login', loginLimiter, (req, res) => {
 
   const user = getUserByUsername(username);
   if (!user || user.enabled === false || !bcrypt.compareSync(password, user.passwordHash)) {
-    return res.status(401).json({ error: 'Ungueltige Anmeldedaten' });
+    return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
   }
 
   issueSessionCookie(res, user);
@@ -61,7 +61,7 @@ router.post('/users/me/password', auth, (req, res) => {
     return res.status(401).json({ error: 'Aktuelles Passwort falsch' });
   }
   setPassword(user.username, newPassword);
-  logActivity(user.username, 'Passwort geaendert');
+  logActivity(user.username, 'Passwort geändert');
   clearSessionCookie(res);
   res.json({ success: true });
 });

@@ -25,9 +25,9 @@ export function renderPlayers(container) {
               <option value="op">OP</option>
               <option value="deop">Deop</option>
             </select>
-            <button id="btn-manual" class="btn-warning px-4 py-2 text-sm">Ausfuehren</button>
+            <button id="btn-manual" class="btn-warning px-4 py-2 text-sm">Ausführen</button>
           </div>
-          <p class="text-xs text-panel-dim mt-1">Auch fuer Spieler die nicht online sind (z.B. ban/unban)</p>
+          <p class="text-xs text-panel-dim mt-1">Auch für Spieler die nicht online sind (z.B. ban/unban)</p>
         </div>` : ''}
     </div>`;
 
@@ -79,7 +79,7 @@ async function load() {
 async function doAction(name, action) {
   const labels = { kick: 'kicken', ban: 'bannen', unban: 'entbannen', op: 'OPpen', deop: 'deOPpen' };
   const danger = action === 'ban' || action === 'kick';
-  const ok = await confirmDialog(`${name} ${labels[action] || action}?`, { danger, ok: 'Bestaetigen' });
+  const ok = await confirmDialog(`${name} ${labels[action] || action}?`, { danger, ok: 'Bestätigen' });
   if (!ok) return;
   try {
     await api('POST', `/players/${encodeURIComponent(name)}/${action}`);

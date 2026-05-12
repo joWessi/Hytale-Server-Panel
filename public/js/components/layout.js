@@ -41,7 +41,7 @@ export function renderLayout(container, user) {
     <div class="md:ml-60 min-h-screen flex flex-col">
       <header class="py-3 px-4 flex justify-between items-center bg-panel-bg/95 border-b border-panel-border sticky top-0 z-30 backdrop-blur-sm">
         <div class="flex items-center gap-3">
-          <button id="btn-sidebar" class="md:hidden p-2 hover:bg-panel-border rounded-lg" aria-label="Menue">
+          <button id="btn-sidebar" class="md:hidden p-2 hover:bg-panel-border rounded-lg" aria-label="Menü">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <h1 id="page-title" class="text-lg font-semibold">Dashboard</h1>

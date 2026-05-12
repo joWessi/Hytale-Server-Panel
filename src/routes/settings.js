@@ -81,7 +81,7 @@ router.get('/activity-log', auth, requirePerm('settings.manage'), (req, res) => 
 router.get('/activity-log/download', auth, requirePerm('settings.manage'), (req, res) => {
   if (!fs.existsSync(config.ACTIVITY_LOG)) {
     res.setHeader('Content-Type', 'text/plain');
-    return res.send('Keine Aktivitaeten');
+    return res.send('Keine Aktivitäten');
   }
   res.download(config.ACTIVITY_LOG, 'activity-log.txt');
 });

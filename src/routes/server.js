@@ -45,14 +45,14 @@ router.post('/server/:action', auth, requirePerm('server.control'), async (req, 
   }
 
   if (serverActionInProgress) {
-    return res.status(409).json({ success: false, message: 'Aktion laeuft bereits' });
+    return res.status(409).json({ success: false, message: 'Aktion läuft bereits' });
   }
   serverActionInProgress = true;
 
   try {
     if (action === 'start') {
       if (await sc.isServerActive()) {
-        return res.json({ success: false, message: 'Server laeuft bereits' });
+        return res.json({ success: false, message: 'Server läuft bereits' });
       }
       if (!fs.existsSync(config.SERVER_JAR)) {
         sendDiscord('Server konnte nicht gestartet werden - keine .jar Datei gefunden!', 15158332);
@@ -71,7 +71,7 @@ router.post('/server/:action', auth, requirePerm('server.control'), async (req, 
 
     if (action === 'stop') {
       if (!(await sc.isServerActive())) {
-        return res.json({ success: false, message: 'Server laeuft nicht' });
+        return res.json({ success: false, message: 'Server läuft nicht' });
       }
       sendDiscord('Server wird gestoppt...', 15105570);
       logActivity(req.user.username, 'Server gestoppt');

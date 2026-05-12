@@ -79,7 +79,7 @@ router.patch('/users/:username', auth, requirePerm('users.manage'), (req, res) =
   if (typeof req.body.uuid === 'string') {
     const newUuid = req.body.uuid.trim() || null;
     if (newUuid && !isValidUuid(newUuid)) {
-      return res.status(400).json({ error: 'Ungueltige UUID' });
+      return res.status(400).json({ error: 'Ungültige UUID' });
     }
     if (newUuid) {
       const taken = users.some(u => u.username !== user.username && u.uuid && u.uuid.toLowerCase() === newUuid.toLowerCase());
@@ -113,28 +113,28 @@ router.post('/users/:username/reset-password', auth, requirePerm('users.manage')
   const user = users.find(u => u.username === req.params.username);
   if (!user) return res.status(404).json({ error: 'Nicht gefunden' });
   if (user.username === req.user.username) {
-    return res.status(400).json({ error: 'Eigenes Passwort ueber Profil aendern' });
+    return res.status(400).json({ error: 'Eigenes Passwort über Profil ändern' });
   }
   user.passwordHash = bcrypt.hashSync(newPassword, config.BCRYPT_ROUNDS);
   user.tokenVersion = (user.tokenVersion || 0) + 1;
   user.mustChangePassword = true;
   saveUsers(users);
-  logActivity(req.user.username, `Passwort zurueckgesetzt: ${user.username}`);
+  logActivity(req.user.username, `Passwort zurückgesetzt: ${user.username}`);
   res.json({ success: true });
 });
 
 router.delete('/users/:username', auth, requirePerm('users.manage'), (req, res) => {
   if (req.params.username === 'admin') {
-    return res.status(400).json({ error: 'Admin kann nicht geloescht werden' });
+    return res.status(400).json({ error: 'Admin kann nicht gelöscht werden' });
   }
   if (req.params.username === req.user.username) {
-    return res.status(400).json({ error: 'Selbstloeschung nicht erlaubt' });
+    return res.status(400).json({ error: 'Selbstlöschung nicht erlaubt' });
   }
   const users = getUsers();
   const remaining = users.filter(u => u.username !== req.params.username);
   saveUsers(remaining);
   syncWhitelist();
-  logActivity(req.user.username, `Benutzer geloescht: ${req.params.username}`);
+  logActivity(req.user.username, `Benutzer gelöscht: ${req.params.username}`);
   res.json({ success: true });
 });
 

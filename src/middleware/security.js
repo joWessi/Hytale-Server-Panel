@@ -13,8 +13,8 @@ function mkLimiter(opts, msg) {
   });
 }
 
-const loginLimiter = mkLimiter(config.LOGIN_RATE_LIMIT, 'Zu viele Login-Versuche. Bitte spaeter erneut versuchen.');
-const apiLimiter = mkLimiter(config.API_RATE_LIMIT, 'Zu viele Anfragen. Bitte spaeter erneut versuchen.');
+const loginLimiter = mkLimiter(config.LOGIN_RATE_LIMIT, 'Zu viele Login-Versuche. Bitte später erneut versuchen.');
+const apiLimiter = mkLimiter(config.API_RATE_LIMIT, 'Zu viele Anfragen. Bitte später erneut versuchen.');
 const uploadLimiter = mkLimiter(config.UPLOAD_RATE_LIMIT, 'Zu viele Uploads. Bitte warten.');
 const downloadLimiter = mkLimiter(config.DOWNLOAD_RATE_LIMIT, 'Zu viele Downloads. Bitte warten.');
 

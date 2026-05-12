@@ -45,7 +45,7 @@ async function sendServerCommand(cmd) {
 router.post('/players/:name/:action', auth, requirePerm('console.write'), async (req, res) => {
   const { name, action } = req.params;
   if (!/^[A-Za-z0-9_]{2,32}$/.test(name)) {
-    return res.status(400).json({ error: 'Ungueltiger Name' });
+    return res.status(400).json({ error: 'Ungültiger Name' });
   }
   let cmd;
   switch (action) {

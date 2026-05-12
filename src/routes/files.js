@@ -115,7 +115,7 @@ router.post('/files/upload', auth, requirePerm('files.write'), uploadLimiter,
     const baseName = path.basename(req.file.originalname);
     if (isProtected(baseName)) {
       cleanupTmp(req.file);
-      return res.status(403).json({ error: 'Diese Datei ist geschuetzt' });
+      return res.status(403).json({ error: 'Diese Datei ist geschützt' });
     }
 
     try {
@@ -139,13 +139,13 @@ router.delete('/files', auth, requirePerm('files.write'), (req, res) => {
   if (!isWithinDir(config.SERVER_DIR, fullPath) || fullPath === path.resolve(config.SERVER_DIR)) {
     return res.status(403).json({ error: 'Zugriff verweigert' });
   }
-  if (isProtected(fullPath)) return res.status(403).json({ error: 'Datei ist geschuetzt' });
+  if (isProtected(fullPath)) return res.status(403).json({ error: 'Datei ist geschützt' });
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Nicht gefunden' });
   try {
     const st = fs.statSync(fullPath);
     if (st.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
     else fs.unlinkSync(fullPath);
-    logActivity(req.user.username, `Geloescht: ${path.relative(config.SERVER_DIR, fullPath)}`);
+    logActivity(req.user.username, `Gelöscht: ${path.relative(config.SERVER_DIR, fullPath)}`);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -161,7 +161,7 @@ router.post('/files/rename', auth, requirePerm('files.write'), (req, res) => {
     return res.status(403).json({ error: 'Zugriff verweigert' });
   }
   if (isProtected(fromPath) || isProtected(toPath)) {
-    return res.status(403).json({ error: 'Datei ist geschuetzt' });
+    return res.status(403).json({ error: 'Datei ist geschützt' });
   }
   if (!fs.existsSync(fromPath)) return res.status(404).json({ error: 'Quelle nicht gefunden' });
   if (fs.existsSync(toPath)) return res.status(400).json({ error: 'Ziel existiert bereits' });

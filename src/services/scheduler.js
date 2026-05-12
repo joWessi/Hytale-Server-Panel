@@ -55,8 +55,8 @@ async function executeRestart() {
     const s = getScheduler();
     s.lastRestart = new Date().toISOString();
     saveScheduler(s);
-    sendDiscord('Auto-Restart ausgefuehrt', 15105570);
-    logActivity('system', 'Auto-Restart ausgefuehrt');
+    sendDiscord('Auto-Restart ausgeführt', 15105570);
+    logActivity('system', 'Auto-Restart ausgeführt');
   } catch (e) {
     logActivity('system', `Auto-Restart fehlgeschlagen: ${e.message}`);
   }
@@ -91,7 +91,7 @@ function checkMissedJobs() {
   if (scheduler.autoBackup && scheduler.lastBackup) {
     const hoursSince = (now - new Date(scheduler.lastBackup)) / 3600000;
     if (hoursSince > 25) {
-      logActivity('system', 'Verpasstes Auto-Backup erkannt, wird jetzt ausgefuehrt');
+      logActivity('system', 'Verpasstes Auto-Backup erkannt, wird jetzt ausgeführt');
       executeAutoBackup();
     }
   }

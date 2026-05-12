@@ -54,7 +54,7 @@ router.delete('/backups/:name', auth, requirePerm('backups.manage'), (req, res) 
   if (!isWithinDir(config.BACKUPS_DIR, fullPath)) return res.status(403).json({ error: 'Zugriff verweigert' });
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
-    logActivity(req.user.username, `Backup geloescht: ${req.params.name}`);
+    logActivity(req.user.username, `Backup gelöscht: ${req.params.name}`);
   }
   res.json({ success: true });
 });

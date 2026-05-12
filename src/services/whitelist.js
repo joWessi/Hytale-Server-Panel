@@ -53,7 +53,7 @@ function syncWhitelist() {
   const removed = oldList.filter(id => !newList.includes(id));
   const added = newList.filter(id => !oldList.includes(id));
   if (removed.length) logActivity('system', `Whitelist sync: ${removed.length} entfernt`);
-  if (added.length) logActivity('system', `Whitelist sync: ${added.length} hinzugefuegt`);
+  if (added.length) logActivity('system', `Whitelist sync: ${added.length} hinzugefügt`);
 }
 
 module.exports = {

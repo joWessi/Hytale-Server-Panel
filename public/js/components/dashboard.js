@@ -96,7 +96,7 @@ export function renderDashboard(container) {
           <span id="restart-badge" class="px-2 py-0.5 rounded text-xs bg-panel-border text-panel-dim">--</span>
         </div>
         <div class="text-sm space-y-1">
-          <div class="flex justify-between"><span class="text-panel-dim">Naechster</span><span id="next-restart">--</span></div>
+          <div class="flex justify-between"><span class="text-panel-dim">Nächster</span><span id="next-restart">--</span></div>
           <div class="flex justify-between"><span class="text-panel-dim">Letzter</span><span id="last-restart" class="text-panel-dim">--</span></div>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function renderDashboard(container) {
           <span id="backup-badge" class="px-2 py-0.5 rounded text-xs bg-panel-border text-panel-dim">--</span>
         </div>
         <div class="text-sm space-y-1">
-          <div class="flex justify-between"><span class="text-panel-dim">Naechstes</span><span id="next-backup">--</span></div>
+          <div class="flex justify-between"><span class="text-panel-dim">Nächstes</span><span id="next-backup">--</span></div>
           <div class="flex justify-between"><span class="text-panel-dim">Letztes</span><span id="last-backup" class="text-panel-dim">--</span></div>
         </div>
       </div>
@@ -214,7 +214,7 @@ async function handleAction(action) {
   try {
     const d = await api('POST', `/server/${action}`);
     if (d.success === false) showToast(d.message || 'Fehler', 'error');
-    else showToast('Aktion ausgefuehrt');
+    else showToast('Aktion ausgeführt');
   } catch (e) { showToast(e.message || 'Fehler', 'error'); }
   setTimeout(() => { actionRunning = false; loadDashboard(); }, 5000);
 }
