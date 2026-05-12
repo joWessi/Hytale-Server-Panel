@@ -17,7 +17,9 @@ KillSignal=SIGTERM
 TimeoutStopSec=15
 
 # Security hardening
-NoNewPrivileges=true
+# Note: NoNewPrivileges is intentionally NOT set — the panel uses sudo with an
+# explicit allowlist (/etc/sudoers.d/hytale-panel) to control systemctl and
+# the hytale-setup.sh installer. Locking out setuid would break those.
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/opt/hytale-panel/data /tmp /home/hytale/server
