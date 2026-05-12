@@ -42,6 +42,7 @@ app.use('/api', require('./routes/settings'));
 app.use('/api', require('./routes/system'));
 app.use('/api', require('./routes/dashboard'));
 app.use('/api', require('./routes/players'));
+app.use('/api', require('./routes/setup'));
 app.use('/api', require('./routes/internal'));
 
 app.get('*', (req, res) => {
@@ -52,9 +53,13 @@ const server = app.listen(config.PORT, config.BIND_HOST, () => {
   console.log(`Hytale Panel v${pkg.version} running on ${config.BIND_HOST}:${config.PORT}`);
 });
 
-const wss = new WebSocket.Server({ server, path: '/ws/console' });
+const wssConsole = new WebSocket.Server({ server, path: '/ws/console' });
 const { setupConsoleWebSocket } = require('./routes/console');
-setupConsoleWebSocket(wss);
+setupConsoleWebSocket(wssConsole);
+
+const wssSetup = new WebSocket.Server({ server, path: '/ws/setup' });
+const { setupSetupWebSocket } = require('./routes/setup');
+setupSetupWebSocket(wssSetup);
 
 const { scheduleJobs, checkMissedJobs } = require('./services/scheduler');
 const { startMonitoring } = require('./services/metrics');
@@ -67,7 +72,8 @@ syncWhitelist();
 
 function shutdown() {
   console.log('Shutting down...');
-  try { wss.clients.forEach(c => c.terminate()); } catch {}
+  try { wssConsole.clients.forEach(c => c.terminate()); } catch {}
+  try { wssSetup.clients.forEach(c => c.terminate()); } catch {}
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();
 }

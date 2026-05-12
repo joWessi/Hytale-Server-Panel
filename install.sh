@@ -89,6 +89,7 @@ hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl start hytale-server
 hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl stop hytale-server
 hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl restart hytale-server
 hytale-panel ALL=(root) NOPASSWD: /usr/bin/systemctl is-active hytale-server
+hytale-panel ALL=(root) NOPASSWD: /usr/local/bin/hytale-setup.sh *
 SUDOERS
 chmod 440 /etc/sudoers.d/hytale-panel
 
@@ -144,7 +145,26 @@ echo "[9/11] Scripts installieren..."
 cp "$SOURCE_DIR/scripts/hytale-server.sh" /usr/local/bin/
 cp "$SOURCE_DIR/scripts/hytale-stop.sh" /usr/local/bin/
 cp "$SOURCE_DIR/scripts/hytale-crash-notify.sh" /usr/local/bin/
+cp "$SOURCE_DIR/scripts/hytale-setup.sh" /usr/local/bin/
 chmod 755 /usr/local/bin/hytale-*.sh
+
+# Hytale downloader CLI (official binary from downloader.hytale.com)
+if [ -f "$SOURCE_DIR/vendor/hytale-downloader" ]; then
+    echo "    Verwende mitgeliefertes Downloader-Binary"
+    cp "$SOURCE_DIR/vendor/hytale-downloader" /usr/local/bin/hytale-downloader
+else
+    echo "    Lade Hytale-Downloader von downloader.hytale.com..."
+    DL_TMP=$(mktemp -d)
+    if curl -fsSL https://downloader.hytale.com/hytale-downloader.zip -o "$DL_TMP/dl.zip"; then
+        unzip -q -j "$DL_TMP/dl.zip" hytale-downloader-linux-amd64 -d "$DL_TMP/"
+        mv "$DL_TMP/hytale-downloader-linux-amd64" /usr/local/bin/hytale-downloader
+    else
+        echo "    WARNUNG: Hytale-Downloader konnte nicht geladen werden — Setup-Wizard im Panel wird fehlschlagen."
+        echo "    Manuell nachholen: lade hytale-downloader.zip von der offiziellen Quelle, entpacke das Linux-Binary nach /usr/local/bin/hytale-downloader"
+    fi
+    rm -rf "$DL_TMP"
+fi
+chmod 755 /usr/local/bin/hytale-downloader 2>/dev/null || true
 
 cp "$SOURCE_DIR/scripts/send_cmd.sh" /home/hytale/server/
 cp "$SOURCE_DIR/scripts/send_save.sh" /home/hytale/server/

@@ -39,12 +39,15 @@ router.post('/logout', (req, res) => {
 
 router.get('/users/me', auth, (req, res) => {
   const settings = getSettings();
+  const fs = require('fs');
+  const config = require('../config');
   res.json({
     username: req.user.username,
     role: req.user.role,
     permissions: req.user.permissions,
     sessionTimeout: settings.sessionTimeout,
     mustChangePassword: req.user.mustChangePassword,
+    serverInstalled: fs.existsSync(config.SERVER_JAR),
   });
 });
 

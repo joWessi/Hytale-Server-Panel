@@ -12,6 +12,7 @@ import { renderScheduler } from './components/scheduler.js';
 import { renderUsers } from './components/users.js';
 import { renderPlayers } from './components/players.js';
 import { renderSettings } from './components/settings.js';
+import { renderSetupWizard } from './components/setup-wizard.js';
 import { showToast, darkenHex, confirmDialog } from './utils.js';
 
 window.__panelUser = null;
@@ -51,6 +52,12 @@ async function init() {
 
   if (user.mustChangePassword) {
     showPasswordChangeBlocker(appEl, user);
+    return;
+  }
+
+  if (!user.serverInstalled) {
+    window.__panelUser = user;
+    renderSetupWizard(appEl, { isUpdate: false });
     return;
   }
 
@@ -108,6 +115,7 @@ function showMainApp(appEl, user) {
   route('users', (c) => renderUsers(c));
   route('players', (c) => renderPlayers(c));
   route('settings', (c) => renderSettings(c));
+  route('update', (c) => renderSetupWizard(c, { isUpdate: true }));
   route('login', () => { navigate('dashboard'); return null; });
 
   initRouter(() => mainContent);

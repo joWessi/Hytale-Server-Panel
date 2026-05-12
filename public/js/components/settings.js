@@ -78,6 +78,15 @@ export function renderSettings(container) {
       </div>
 
       <div class="card p-5">
+        <h3 class="font-medium mb-4">Server-Update</h3>
+        <p id="update-status" class="text-sm text-panel-dim mb-3">--</p>
+        <div class="flex gap-2 flex-wrap">
+          <button id="btn-check-update" class="btn-secondary px-4 py-2 text-sm">Auf Updates prüfen</button>
+          <a href="#update" class="btn-warning px-4 py-2 text-sm inline-block">Update-Wizard öffnen</a>
+        </div>
+      </div>
+
+      <div class="card p-5">
         <h3 class="font-medium mb-3">Aktivitäts-Log</h3>
         <p class="text-sm text-panel-dim mb-3">Protokoll aller Benutzeraktionen</p>
         <a href="${downloadUrl('/activity-log/download')}" class="btn-secondary px-4 py-2 text-sm inline-block">Download Log</a>
@@ -102,8 +111,10 @@ export function renderSettings(container) {
   document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
   document.getElementById('btn-test-webhook').addEventListener('click', testWebhook);
   document.getElementById('btn-clear-webhook').addEventListener('click', clearWebhook);
+  document.getElementById('btn-check-update').addEventListener('click', checkUpdate);
   document.getElementById('s-retention').addEventListener('change', toggleMaxBackups);
   document.getElementById('pw-form').addEventListener('submit', changeOwnPassword);
+  loadUpdateStatus();
   return null;
 }
 
@@ -222,6 +233,44 @@ async function testWebhook() {
   try { await api('POST', '/settings/test-webhook'); showToast('Test gesendet'); }
   catch (e) { showToast(e.message, 'error'); }
 }
+
+async function loadUpdateStatus() {
+  try {
+    const d = await api('GET', '/setup/status');
+    const el = document.getElementById('update-status');
+    if (!d.installed) {
+      el.textContent = 'Server ist nicht installiert';
+      el.className = 'text-sm text-red-400 mb-3';
+    } else {
+      el.textContent = `Installierte Version: ${d.installedVersion || 'unbekannt'}`;
+      el.className = 'text-sm text-panel-dim mb-3';
+    }
+  } catch { /* ignore */ }
+}
+
+async function checkUpdate() {
+  const el = document.getElementById('update-status');
+  el.textContent = 'Prüfe...';
+  try {
+    const d = await api('POST', '/setup/check', { patchline: 'release' });
+    const installed = await api('GET', '/setup/status');
+    if (d.errors?.length) {
+      el.innerHTML = `<span class="text-amber-400">Prüfen fehlgeschlagen — eventuell ${'`'}Credentials zurücksetzen${'`'} im Update-Wizard nötig.</span>`;
+      return;
+    }
+    if (!d.version) {
+      el.textContent = 'Keine Versionsinfo erhalten';
+      return;
+    }
+    if (d.version === installed.installedVersion) {
+      el.innerHTML = `<span class="text-panel-accent">Aktuell (v${d.version})</span>`;
+    } else {
+      el.innerHTML = `<span class="text-amber-400">Update verfügbar: v${escapeAttr(d.version)} (installiert: v${escapeAttr(installed.installedVersion || '-')})</span>`;
+    }
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function escapeAttr(s) { return String(s).replace(/[<>"&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;'}[c])); }
 
 async function changeOwnPassword(e) {
   e.preventDefault();
