@@ -1,15 +1,26 @@
 // Discord webhook notifications
+// URL precedence: settings.discordWebhook (from UI) > DISCORD_WEBHOOK env var
 const https = require('https');
 const config = require('../config');
 const { getSettings } = require('../data/settings');
 
-/**
- * Send an embed message to the configured Discord webhook.
- * Uses DISCORD_WEBHOOK_URL from environment (never exposed to frontend).
- */
+function getWebhookUrl() {
+  const s = getSettings();
+  return s.discordWebhook || config.DISCORD_WEBHOOK_URL || '';
+}
+
+function isWebhookConfigured() {
+  return !!getWebhookUrl();
+}
+
 function sendDiscord(message, color = 3066993) {
-  const webhookUrl = config.DISCORD_WEBHOOK_URL;
+  const webhookUrl = getWebhookUrl();
   if (!webhookUrl) return;
+
+  let url;
+  try { url = new URL(webhookUrl); }
+  catch { return; }
+  if (url.protocol !== 'https:') return;
 
   const settings = getSettings();
   const payload = JSON.stringify({
@@ -22,20 +33,22 @@ function sendDiscord(message, color = 3066993) {
   });
 
   try {
-    const url = new URL(webhookUrl);
     const req = https.request({
       hostname: url.hostname,
-      path: url.pathname,
+      port: url.port || 443,
+      path: url.pathname + url.search,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
       },
+      timeout: 5000,
     });
     req.on('error', () => {});
+    req.on('timeout', () => req.destroy());
     req.write(payload);
     req.end();
-  } catch { /* silently ignore webhook errors */ }
+  } catch { /* ignore */ }
 }
 
-module.exports = { sendDiscord };
+module.exports = { sendDiscord, isWebhookConfigured };

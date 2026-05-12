@@ -4,13 +4,14 @@ const fs = require('fs');
 const config = require('../config');
 const { auth, requirePerm } = require('../middleware/auth');
 const { getSettings, saveSettings } = require('../data/settings');
-const { sendDiscord } = require('../services/discord');
+const { sendDiscord, isWebhookConfigured } = require('../services/discord');
 const { applyRetention } = require('../services/backup');
 const { logActivity } = require('../data/store');
 
 const router = express.Router();
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const DISCORD_WEBHOOK_RE = /^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 // Public theme endpoint (login page)
 router.get('/theme', (req, res) => {
@@ -30,10 +31,17 @@ router.get('/server-address', auth, (req, res) => {
   res.json({ address: `${s.serverAddress}:${s.serverPort || 5520}` });
 });
 
-// Full settings (admin)
+// Full settings (admin) — webhook URL is never sent to the frontend.
 router.get('/settings', auth, requirePerm('settings.manage'), (req, res) => {
   const s = getSettings();
-  res.json({ ...s, discordWebhookConfigured: !!config.DISCORD_WEBHOOK_URL });
+  const { discordWebhook, ...safe } = s;
+  res.json({
+    ...safe,
+    discordWebhookConfigured: isWebhookConfigured(),
+    discordWebhookSource: s.discordWebhook
+      ? 'settings'
+      : (config.DISCORD_WEBHOOK_URL ? 'env' : 'none'),
+  });
 });
 
 router.post('/settings', auth, requirePerm('settings.manage'), (req, res) => {
@@ -60,6 +68,19 @@ router.post('/settings', auth, requirePerm('settings.manage'), (req, res) => {
   }
   if (b.backupRetention === 'fifo' || b.backupRetention === 'gfs') {
     s.backupRetention = b.backupRetention;
+  }
+  // Webhook: empty string clears it, otherwise must match Discord URL pattern.
+  // Keep current value if field is omitted entirely (frontend never sees it
+  // and doesn't have to round-trip it on every save).
+  if (typeof b.discordWebhook === 'string') {
+    const trimmed = b.discordWebhook.trim();
+    if (trimmed === '') {
+      delete s.discordWebhook;
+    } else if (DISCORD_WEBHOOK_RE.test(trimmed)) {
+      s.discordWebhook = trimmed;
+    } else {
+      return res.status(400).json({ error: 'Ungültige Discord-Webhook-URL' });
+    }
   }
 
   saveSettings(s);

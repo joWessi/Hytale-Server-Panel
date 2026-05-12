@@ -1,6 +1,6 @@
 // Settings + own password change
 import { api, downloadUrl, logout } from '../api.js';
-import { showToast, darkenHex } from '../utils.js';
+import { showToast, darkenHex, confirmDialog } from '../utils.js';
 
 export function renderSettings(container) {
   container.innerHTML = `
@@ -61,8 +61,12 @@ export function renderSettings(container) {
       <div class="card p-5">
         <h3 class="font-medium mb-4">Discord Webhook</h3>
         <p id="webhook-status" class="text-sm text-panel-dim mb-3">--</p>
-        <button id="btn-test-webhook" class="btn-secondary px-4 py-2 text-sm">Testen</button>
-        <p class="text-xs text-panel-dim mt-2">Webhook-URL über Umgebungsvariable DISCORD_WEBHOOK in /etc/hytale-panel/env.</p>
+        <input type="url" id="s-webhook" class="w-full px-3 py-2.5 text-sm font-mono mb-2" placeholder="https://discord.com/api/webhooks/...">
+        <p class="text-xs text-panel-dim mb-3">Wird beim Klick auf "Speichern" unten übernommen. Leer = keine Änderung.</p>
+        <div class="flex gap-2">
+          <button id="btn-test-webhook" class="btn-secondary px-4 py-2 text-sm">Testen</button>
+          <button id="btn-clear-webhook" class="btn-danger px-4 py-2 text-sm">Entfernen</button>
+        </div>
       </div>
 
       <div class="card p-5">
@@ -97,6 +101,7 @@ export function renderSettings(container) {
 
   document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
   document.getElementById('btn-test-webhook').addEventListener('click', testWebhook);
+  document.getElementById('btn-clear-webhook').addEventListener('click', clearWebhook);
   document.getElementById('s-retention').addEventListener('change', toggleMaxBackups);
   document.getElementById('pw-form').addEventListener('submit', changeOwnPassword);
   return null;
@@ -151,9 +156,20 @@ async function loadSettings() {
     document.getElementById('s-retention').value = d.backupRetention || 'fifo';
     document.getElementById('s-max').value = d.maxBackups || 3;
     toggleMaxBackups();
-    document.getElementById('webhook-status').textContent = d.discordWebhookConfigured
-      ? 'Webhook konfiguriert (via Umgebungsvariable)'
-      : 'Kein Webhook konfiguriert';
+    const status = document.getElementById('webhook-status');
+    const webhookInput = document.getElementById('s-webhook');
+    if (d.discordWebhookConfigured) {
+      const src = d.discordWebhookSource === 'env' ? 'Umgebungsvariable' : 'Panel';
+      status.textContent = `Konfiguriert (Quelle: ${src})`;
+      status.className = 'text-sm text-panel-accent mb-3';
+      webhookInput.placeholder = d.discordWebhookSource === 'env'
+        ? 'Über env-Variable gesetzt — hier eintragen überschreibt das'
+        : 'Aktuell gesetzt — leer lassen zum Entfernen';
+    } else {
+      status.textContent = 'Kein Webhook konfiguriert';
+      status.className = 'text-sm text-panel-dim mb-3';
+    }
+    webhookInput.value = '';
   } catch { /* ignore */ }
 }
 
@@ -169,20 +185,36 @@ function toggleMaxBackups() {
 }
 
 async function saveSettings() {
+  const body = {
+    panelName: document.getElementById('s-name').value,
+    hidePanelName: document.getElementById('s-hide-name').checked,
+    accentColor: document.getElementById('c-accent-hex').value,
+    cardColor: document.getElementById('c-card-hex').value,
+    bgColor: document.getElementById('c-bg-hex').value,
+    serverAddress: document.getElementById('s-addr').value,
+    serverPort: parseInt(document.getElementById('s-port').value, 10),
+    sessionTimeout: parseInt(document.getElementById('s-timeout').value, 10),
+    maxBackups: parseInt(document.getElementById('s-max').value, 10),
+    backupRetention: document.getElementById('s-retention').value,
+  };
+  // Webhook: only include if user typed something (empty = unchanged)
+  const webhook = document.getElementById('s-webhook').value.trim();
+  if (webhook) body.discordWebhook = webhook;
+
   try {
-    await api('POST', '/settings', {
-      panelName: document.getElementById('s-name').value,
-      hidePanelName: document.getElementById('s-hide-name').checked,
-      accentColor: document.getElementById('c-accent-hex').value,
-      cardColor: document.getElementById('c-card-hex').value,
-      bgColor: document.getElementById('c-bg-hex').value,
-      serverAddress: document.getElementById('s-addr').value,
-      serverPort: parseInt(document.getElementById('s-port').value, 10),
-      sessionTimeout: parseInt(document.getElementById('s-timeout').value, 10),
-      maxBackups: parseInt(document.getElementById('s-max').value, 10),
-      backupRetention: document.getElementById('s-retention').value,
-    });
+    await api('POST', '/settings', body);
     showToast('Gespeichert');
+    loadSettings();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function clearWebhook() {
+  const ok = await confirmDialog('Discord-Webhook wirklich entfernen?', { danger: true, ok: 'Entfernen' });
+  if (!ok) return;
+  try {
+    await api('POST', '/settings', { discordWebhook: '' });
+    showToast('Webhook entfernt');
+    loadSettings();
   } catch (e) { showToast(e.message, 'error'); }
 }
 
