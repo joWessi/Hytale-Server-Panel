@@ -138,9 +138,11 @@ router.delete('/users/:username', auth, requirePerm('users.manage'), (req, res) 
   res.json({ success: true });
 });
 
-// Pending whitelist requests — auto-detected from server log when a player
-// tried to join but was rejected because they're not on the whitelist.
-const { getPending, clearPending } = require('../services/connection-tracker');
+// Player tracker exposes three lists derived from the server console log:
+//   - known: every (name, uuid) seen, persistent
+//   - pending: last attempt was rejected by whitelist (in-memory)
+//   - online: currently connected, in-memory
+const { getKnown, getPending, clearPending } = require('../services/player-tracker');
 
 router.get('/whitelist/pending', auth, requirePerm('users.manage'), (req, res) => {
   res.json({ pending: getPending() });
@@ -149,6 +151,23 @@ router.get('/whitelist/pending', auth, requirePerm('users.manage'), (req, res) =
 router.delete('/whitelist/pending/:uuid', auth, requirePerm('users.manage'), (req, res) => {
   clearPending(req.params.uuid);
   res.json({ success: true });
+});
+
+// Every UUID/name the server has seen. Each entry includes whether the UUID
+// is already taken by a panel user (drives the dropdown filter in the UI).
+router.get('/known-players', auth, requirePerm('users.manage'), (req, res) => {
+  const known = getKnown();
+  const users = getUsers();
+  const takenByUser = new Map();
+  for (const u of users) {
+    if (u.uuid) takenByUser.set(u.uuid.toLowerCase().replace(/-/g, ''), u.username);
+  }
+  res.json({
+    known: known.map(p => ({
+      ...p,
+      assignedTo: takenByUser.get(p.uuid.toLowerCase().replace(/-/g, '')) || null,
+    })),
+  });
 });
 
 router.get('/users/me/whitelist', auth, (req, res) => {

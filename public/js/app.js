@@ -12,6 +12,7 @@ import { renderScheduler } from './components/scheduler.js';
 import { renderUsers } from './components/users.js';
 import { renderPlayers } from './components/players.js';
 import { renderSettings } from './components/settings.js';
+import { renderWhitelist } from './components/whitelist.js';
 import { renderSetupWizard } from './components/setup-wizard.js';
 import { showToast, darkenHex, confirmDialog } from './utils.js';
 
@@ -113,6 +114,7 @@ function showMainApp(appEl, user) {
   route('backups', (c) => renderBackups(c));
   route('scheduler', (c) => renderScheduler(c));
   route('users', (c) => renderUsers(c));
+  route('whitelist', (c) => renderWhitelist(c));
   route('players', (c) => renderPlayers(c));
   route('settings', (c) => renderSettings(c));
   route('update', (c) => renderSetupWizard(c, { isUpdate: true }));

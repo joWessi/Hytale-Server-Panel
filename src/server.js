@@ -84,13 +84,13 @@ server.on('upgrade', (req, socket, head) => {
 const { scheduleJobs, checkMissedJobs } = require('./services/scheduler');
 const { startMonitoring } = require('./services/metrics');
 const { syncWhitelist } = require('./services/whitelist');
-const { start: startConnectionTracker } = require('./services/connection-tracker');
+const { start: startPlayerTracker } = require('./services/player-tracker');
 
 scheduleJobs();
 checkMissedJobs();
 startMonitoring();
 syncWhitelist();
-startConnectionTracker();
+startPlayerTracker();
 
 function shutdown() {
   console.log('Shutting down...');

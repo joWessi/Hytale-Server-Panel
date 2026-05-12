@@ -56,7 +56,9 @@ export function renderUsers(container) {
             </div>
             <div>
               <label class="text-xs text-panel-dim uppercase">UUID (Whitelist)</label>
-              <input type="text" id="edit-uuid" class="w-full mt-1 px-3 py-2 text-sm font-mono" placeholder="UUID eingeben...">
+              <input type="text" id="edit-uuid" class="w-full mt-1 px-3 py-2 text-sm font-mono" placeholder="UUID eingeben oder aus Liste wählen..." list="known-uuids">
+              <datalist id="known-uuids"></datalist>
+              <p class="text-[10px] text-panel-dim mt-1">Dropdown zeigt UUIDs die der Server bereits gesehen hat und noch nicht zugewiesen sind.</p>
               <p id="edit-uuid-err" class="hidden text-xs text-red-400 mt-1"></p>
             </div>
             <label class="flex items-center gap-2 cursor-pointer">
@@ -99,9 +101,23 @@ export function renderUsers(container) {
 
   loadUsers();
   loadPending();
-  pendingInterval = setInterval(loadPending, 15000);
+  loadKnownUuids();
+  pendingInterval = setInterval(() => { loadPending(); loadKnownUuids(); }, 15000);
 
   return () => { clearInterval(pendingInterval); pendingInterval = null; };
+}
+
+async function loadKnownUuids() {
+  try {
+    const d = await api('GET', '/known-players');
+    const list = document.getElementById('known-uuids');
+    if (!list) return;
+    // Only suggest UUIDs not already assigned (or assigned to currently-selected user)
+    const opts = (d.known || []).filter(p => !p.assignedTo).map(p => {
+      return `<option value="${escapeHtml(p.uuid)}">${escapeHtml(p.name)}</option>`;
+    }).join('');
+    list.innerHTML = opts;
+  } catch { /* ignore */ }
 }
 
 async function loadPending() {
