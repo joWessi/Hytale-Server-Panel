@@ -1,6 +1,7 @@
 [Unit]
 Description=Hytale Panel
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -12,13 +13,22 @@ ExecStart=/usr/bin/node src/server.js
 Restart=on-failure
 RestartSec=10
 LimitNOFILE=65535
+KillSignal=SIGTERM
+TimeoutStopSec=15
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/opt/hytale-panel/data /tmp
-ReadOnlyPaths=/home/hytale/server
-PrivateTmp=true
+ProtectHome=read-only
+ReadWritePaths=/opt/hytale-panel/data /tmp /home/hytale/server
+PrivateTmp=false
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
 
 [Install]
 WantedBy=multi-user.target

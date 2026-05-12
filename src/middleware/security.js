@@ -3,56 +3,39 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const config = require('../config');
 
-/**
- * Rate limiter for login endpoint: 5 attempts per 15 minutes per IP.
- */
-const loginLimiter = rateLimit({
-  windowMs: config.LOGIN_RATE_LIMIT.windowMs,
-  max: config.LOGIN_RATE_LIMIT.max,
-  message: { error: 'Zu viele Login-Versuche. Bitte spaeter erneut versuchen.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+function mkLimiter(opts, msg) {
+  return rateLimit({
+    windowMs: opts.windowMs,
+    max: opts.max,
+    message: { error: msg },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+}
 
-/**
- * Global rate limiter: 100 requests per minute per IP.
- */
-const apiLimiter = rateLimit({
-  windowMs: config.API_RATE_LIMIT.windowMs,
-  max: config.API_RATE_LIMIT.max,
-  message: { error: 'Zu viele Anfragen. Bitte spaeter erneut versuchen.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const loginLimiter = mkLimiter(config.LOGIN_RATE_LIMIT, 'Zu viele Login-Versuche. Bitte spaeter erneut versuchen.');
+const apiLimiter = mkLimiter(config.API_RATE_LIMIT, 'Zu viele Anfragen. Bitte spaeter erneut versuchen.');
+const uploadLimiter = mkLimiter(config.UPLOAD_RATE_LIMIT, 'Zu viele Uploads. Bitte warten.');
+const downloadLimiter = mkLimiter(config.DOWNLOAD_RATE_LIMIT, 'Zu viele Downloads. Bitte warten.');
 
-/**
- * Helmet for basic security headers.
- * CSP is primarily handled by Nginx, but we set sensible defaults.
- */
 const helmetMiddleware = helmet({
-  contentSecurityPolicy: false, // Handled by Nginx for more control
+  contentSecurityPolicy: false, // Handled by Nginx
   crossOriginEmbedderPolicy: false,
 });
 
-// Allowed characters for console commands sent to FIFO
 const COMMAND_PATTERN = /^[a-zA-Z0-9\s\-_.,!?:;=@#/'"()\[\]{}+*<>äöüÄÖÜß]+$/;
 
-/**
- * Sanitize a console command before sending to FIFO.
- * Returns sanitized command or null if invalid.
- */
 function sanitizeCommand(cmd) {
   if (typeof cmd !== 'string') return null;
   const trimmed = cmd.trim().slice(0, config.MAX_COMMAND_LENGTH);
   if (!trimmed) return null;
-
-  // Reject control characters and newlines
   if (/[\x00-\x1f\x7f]/.test(trimmed)) return null;
-
-  // Reject shell metacharacters that could cause issues
   if (/[`$\\|;&]/.test(trimmed)) return null;
-
+  if (!COMMAND_PATTERN.test(trimmed)) return null;
   return trimmed;
 }
 
-module.exports = { loginLimiter, apiLimiter, helmetMiddleware, sanitizeCommand };
+module.exports = {
+  loginLimiter, apiLimiter, uploadLimiter, downloadLimiter,
+  helmetMiddleware, sanitizeCommand,
+};

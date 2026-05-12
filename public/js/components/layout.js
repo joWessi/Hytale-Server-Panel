@@ -1,10 +1,11 @@
-// Layout component: sidebar + header shell
+// Layout: sidebar + header shell
 import { logout } from '../api.js';
-import { navigate, getCurrentRoute } from '../router.js';
+import { hasPerm } from '../utils.js';
 
 const NAV_ITEMS = [
   { hash: 'dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z', label: 'Dashboard', perm: null },
   { hash: 'console', icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Konsole', perm: 'console.read' },
+  { hash: 'players', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6 0a4 4 0 10-6 0m6 0a4 4 0 11-6 0m11-9a4 4 0 11-8 0 4 4 0 018 0z', label: 'Spieler', perm: 'console.read' },
   { hash: 'files', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z', label: 'Dateien', perm: 'files.read' },
   { hash: 'config', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', label: 'Konfiguration', perm: 'config.read' },
   { hash: 'backups', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12', label: 'Backups', perm: 'backups.read' },
@@ -14,14 +15,9 @@ const NAV_ITEMS = [
 ];
 
 export function renderLayout(container, user) {
-  const hasPerm = (p) => {
-    if (!p) return true;
-    if (user.role === 'admin') return true;
-    return user.permissions?.includes(p);
-  };
-
+  const initials = (user.username[0] || '?').toUpperCase();
   container.innerHTML = `
-    <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black/60 z-40 md:hidden hidden" ></div>
+    <div id="sidebar-overlay" class="sidebar-overlay fixed inset-0 bg-black/60 z-40 md:hidden hidden"></div>
     <aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-60 z-50 flex flex-col">
       <div class="p-5 border-b border-panel-border text-center">
         <div class="text-xl font-bold text-panel-accent">HYTALE</div>
@@ -30,14 +26,14 @@ export function renderLayout(container, user) {
       <nav class="flex-1 p-3 overflow-y-auto space-y-0.5" id="nav-menu"></nav>
       <div class="p-4 border-t border-panel-border">
         <div class="flex items-center gap-3 mb-3">
-          <div class="w-8 h-8 rounded-full bg-panel-border flex items-center justify-center text-panel-accent text-sm font-bold">${user.username.charAt(0).toUpperCase()}</div>
+          <div class="w-8 h-8 rounded-full bg-panel-border flex items-center justify-center text-panel-accent text-sm font-bold">${initials}</div>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium truncate">${user.username}</div>
             <div class="text-xs text-panel-dim">${user.role === 'admin' ? 'Administrator' : 'Benutzer'}</div>
           </div>
         </div>
         <div class="flex justify-between items-center pt-3 border-t border-panel-border">
-          <span class="text-xs text-panel-dim">v4.0.0</span>
+          <span class="text-xs text-panel-dim" id="version-tag"></span>
           <button id="btn-logout" class="text-xs text-red-400 hover:text-red-300">Logout</button>
         </div>
       </div>
@@ -45,7 +41,7 @@ export function renderLayout(container, user) {
     <div class="md:ml-60 min-h-screen flex flex-col">
       <header class="py-3 px-4 flex justify-between items-center bg-panel-bg/95 border-b border-panel-border sticky top-0 z-30 backdrop-blur-sm">
         <div class="flex items-center gap-3">
-          <button id="btn-sidebar" class="md:hidden p-2 hover:bg-panel-border rounded-lg">
+          <button id="btn-sidebar" class="md:hidden p-2 hover:bg-panel-border rounded-lg" aria-label="Menue">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <h1 id="page-title" class="text-lg font-semibold">Dashboard</h1>
@@ -58,9 +54,8 @@ export function renderLayout(container, user) {
       <main id="main-content" class="flex-1 p-4 max-w-7xl w-full mx-auto"></main>
     </div>`;
 
-  // Build navigation
   const navMenu = document.getElementById('nav-menu');
-  navMenu.innerHTML = NAV_ITEMS.filter(item => hasPerm(item.perm)).map(item => `
+  navMenu.innerHTML = NAV_ITEMS.filter(i => !i.perm || hasPerm(i.perm)).map(item => `
     <a href="#${item.hash}" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" data-nav="${item.hash}">
       <svg class="w-5 h-5 text-panel-dim flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${item.icon}"/>
@@ -68,7 +63,10 @@ export function renderLayout(container, user) {
       <span>${item.label}</span>
     </a>`).join('');
 
-  // Sidebar toggle
+  fetch('/health').then(r => r.json()).then(d => {
+    document.getElementById('version-tag').textContent = `v${d.version}`;
+  }).catch(() => {});
+
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebar-overlay');
   const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.add('hidden'); };
@@ -78,14 +76,9 @@ export function renderLayout(container, user) {
     overlay.classList.toggle('hidden');
   });
   overlay.addEventListener('click', closeSidebar);
-
-  // Close sidebar on navigation (mobile)
   navMenu.addEventListener('click', closeSidebar);
+  document.getElementById('btn-logout').addEventListener('click', () => logout());
 
-  // Logout
-  document.getElementById('btn-logout').addEventListener('click', logout);
-
-  // Highlight active nav item
   updateActiveNav();
   window.addEventListener('hashchange', updateActiveNav);
 
@@ -93,12 +86,10 @@ export function renderLayout(container, user) {
 }
 
 function updateActiveNav() {
-  const hash = window.location.hash.slice(1) || 'dashboard';
+  const hash = location.hash.slice(1) || 'dashboard';
   document.querySelectorAll('[data-nav]').forEach(el => {
     el.classList.toggle('active', el.dataset.nav === hash);
   });
-
-  // Update page title
   const item = NAV_ITEMS.find(i => i.hash === hash);
   const title = document.getElementById('page-title');
   if (title && item) title.textContent = item.label;

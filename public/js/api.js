@@ -1,17 +1,13 @@
-// Centralized API client - all requests go through here
-// Uses httpOnly cookies for auth (no token handling in frontend)
+// Centralized API client - cookies handle auth, no token juggling.
 
-/**
- * Make an API request. Automatically handles 401 by redirecting to login.
- */
 export async function api(method, path, body = null) {
   const opts = {
     method,
     headers: {},
-    credentials: 'same-origin', // Include cookies
+    credentials: 'same-origin',
   };
 
-  if (body && method !== 'GET') {
+  if (body !== null && body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
@@ -19,21 +15,20 @@ export async function api(method, path, body = null) {
   const res = await fetch(`/api${path}`, opts);
 
   if (res.status === 401) {
-    // Session expired or invalid
-    window.location.hash = '#login';
+    if (location.hash !== '#login') {
+      location.hash = '#login';
+      location.reload();
+    }
     throw new Error('Nicht authentifiziert');
   }
+  if (res.status === 429) throw new Error('Zu viele Anfragen');
 
-  if (res.status === 429) {
-    throw new Error('Zu viele Anfragen');
-  }
-
-  return res.json();
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
 }
 
-/**
- * POST login credentials. Cookie is set by server.
- */
 export async function login(username, password) {
   const res = await fetch('/api/login', {
     method: 'POST',
@@ -41,40 +36,39 @@ export async function login(username, password) {
     credentials: 'same-origin',
     body: JSON.stringify({ username, password }),
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Login fehlgeschlagen');
-  }
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Login fehlgeschlagen');
+  return data;
 }
 
-/**
- * POST logout. Clears cookie.
- */
 export async function logout() {
   await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-  window.location.hash = '#login';
-  window.location.reload();
+  location.hash = '#login';
+  location.reload();
 }
 
-/**
- * Upload a file via FormData.
- */
-export async function uploadFile(path, file) {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('path', path);
-  const res = await fetch('/api/files/upload', {
-    method: 'POST',
-    credentials: 'same-origin',
-    body: fd,
+export async function uploadFile(path, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('path', path);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/files/upload');
+    xhr.withCredentials = true;
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+    }
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText || '{}')); }
+      catch { reject(new Error('Antwort fehlerhaft')); }
+    };
+    xhr.onerror = () => reject(new Error('Upload fehlgeschlagen'));
+    xhr.send(fd);
   });
-  return res.json();
 }
 
-/**
- * Get a download URL (cookies sent automatically by browser).
- */
 export function downloadUrl(path) {
   return `/api${path}`;
 }

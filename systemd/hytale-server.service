@@ -8,7 +8,11 @@ User=hytale
 Group=hytale
 WorkingDirectory=/home/hytale/server
 ExecStart=/usr/local/bin/hytale-server.sh
+# ExecStop sends countdown + save before SIGTERM; called both by systemctl stop
+# (from panel) and during clean shutdown.
 ExecStop=/usr/local/bin/hytale-stop.sh
+# Notify panel + Discord on unplanned crashes (suppressed for planned restarts
+# via /tmp/hytale-planned-restart flag set by the panel)
 ExecStopPost=/usr/local/bin/hytale-crash-notify.sh
 Restart=on-failure
 RestartSec=15
@@ -16,7 +20,7 @@ TimeoutStopSec=60
 Nice=5
 LimitNOFILE=65535
 
-# Runtime directory for FIFO
+# Runtime directory for command FIFO
 RuntimeDirectory=hytale
 RuntimeDirectoryMode=0770
 

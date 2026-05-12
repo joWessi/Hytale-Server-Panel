@@ -1,6 +1,6 @@
 {
   "name": "hytale-panel",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Hytale Server Management Panel",
   "main": "src/server.js",
   "scripts": {

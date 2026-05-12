@@ -1,6 +1,7 @@
-// Config file editor routes: list, read, write config files
+// Config file editor routes
 const express = require('express');
 const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
 const cfg = require('../config');
 const { auth, requirePerm } = require('../middleware/auth');
@@ -9,28 +10,32 @@ const { logActivity } = require('../data/store');
 
 const router = express.Router();
 
-router.get('/config/files', auth, requirePerm('config.read'), (req, res) => {
-  if (!fs.existsSync(cfg.SERVER_DIR)) return res.json({ files: [] });
+// Files that may not be edited via config editor (managed by panel)
+const PANEL_MANAGED = new Set(['whitelist.json']);
 
-  const files = [];
-  const scanDir = (dir, prefix = '') => {
-    try {
-      for (const f of fs.readdirSync(dir)) {
-        const full = path.join(dir, f);
-        const rel = prefix ? `${prefix}/${f}` : f;
-        try {
-          const stat = fs.statSync(full);
-          if (stat.isDirectory() && !f.startsWith('.') && f !== 'node_modules' && f !== 'logs') {
-            scanDir(full, rel);
-          } else if (cfg.CONFIG_EXTENSIONS.some(ext => f.endsWith(ext))) {
-            files.push(rel);
-          }
-        } catch { /* skip unreadable files */ }
+const SKIP_DIRS = new Set(['node_modules', 'logs', '.git']);
+
+async function scanDir(dir, prefix = '', acc = []) {
+  let entries;
+  try { entries = await fsp.readdir(dir, { withFileTypes: true }); }
+  catch { return acc; }
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.isDirectory()) {
+      if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) {
+        await scanDir(full, rel, acc);
       }
-    } catch { /* skip unreadable directories */ }
-  };
+    } else if (cfg.TEXT_EXTENSIONS.some(ext => e.name.endsWith(ext))) {
+      acc.push(rel);
+    }
+  }
+  return acc;
+}
 
-  scanDir(cfg.SERVER_DIR);
+router.get('/config/files', auth, requirePerm('config.read'), async (req, res) => {
+  if (!fs.existsSync(cfg.SERVER_DIR)) return res.json({ files: [] });
+  const files = await scanDir(cfg.SERVER_DIR);
   res.json({ files: files.sort() });
 });
 
@@ -43,24 +48,44 @@ router.get('/config/read', auth, requirePerm('config.read'), (req, res) => {
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Nicht gefunden' });
 
   try {
-    res.json({ content: fs.readFileSync(fullPath, 'utf8') });
+    const stat = fs.statSync(fullPath);
+    if (stat.size > 5 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Datei zu gross (>5 MB)' });
+    }
+    res.json({
+      content: fs.readFileSync(fullPath, 'utf8'),
+      managed: PANEL_MANAGED.has(path.basename(fullPath)),
+    });
   } catch {
     res.status(500).json({ error: 'Lesefehler' });
   }
 });
 
 router.post('/config/write', auth, requirePerm('config.write'), (req, res) => {
-  const { file, content } = req.body;
+  const { file, content } = req.body || {};
   if (!file) return res.status(400).json({ error: 'Keine Datei angegeben' });
-  if (!cfg.CONFIG_EXTENSIONS.some(ext => file.endsWith(ext))) {
+  if (typeof content !== 'string') return res.status(400).json({ error: 'Inhalt fehlt' });
+  if (!cfg.TEXT_EXTENSIONS.some(ext => file.endsWith(ext))) {
     return res.status(400).json({ error: 'Ungueltiger Dateityp' });
   }
 
   const fullPath = resolveServerPath(file);
   if (!isWithinDir(cfg.SERVER_DIR, fullPath)) return res.status(403).json({ error: 'Zugriff verweigert' });
+  if (PANEL_MANAGED.has(path.basename(fullPath))) {
+    return res.status(403).json({ error: 'Diese Datei wird vom Panel verwaltet' });
+  }
+
+  // Validate JSON if extension is .json
+  if (fullPath.endsWith('.json')) {
+    try { JSON.parse(content); }
+    catch (e) { return res.status(400).json({ error: `JSON-Fehler: ${e.message}` }); }
+  }
 
   try {
-    fs.writeFileSync(fullPath, content);
+    // Atomic write
+    const tmp = fullPath + '.tmp';
+    fs.writeFileSync(tmp, content);
+    fs.renameSync(tmp, fullPath);
     logActivity(req.user.username, `Config geaendert: ${file}`);
     res.json({ success: true });
   } catch {

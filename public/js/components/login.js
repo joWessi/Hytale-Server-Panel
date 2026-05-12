@@ -1,6 +1,5 @@
 // Login component
 import { login } from '../api.js';
-import { showToast } from '../utils.js';
 
 export function renderLogin(container, onSuccess) {
   container.innerHTML = `
@@ -13,30 +12,33 @@ export function renderLogin(container, onSuccess) {
         <form id="login-form" class="space-y-4">
           <div>
             <label class="block text-sm text-panel-dim mb-1">Benutzername</label>
-            <input type="text" id="login-user" class="w-full px-4 py-3" placeholder="admin" autocomplete="username" required>
+            <input type="text" id="login-user" class="w-full px-4 py-3" autocomplete="username" required>
           </div>
           <div>
             <label class="block text-sm text-panel-dim mb-1">Passwort</label>
-            <input type="password" id="login-pass" class="w-full px-4 py-3" placeholder="••••••••" autocomplete="current-password" required>
+            <input type="password" id="login-pass" class="w-full px-4 py-3" autocomplete="current-password" required>
           </div>
           <button type="submit" class="btn-primary w-full py-3">Anmelden</button>
         </form>
         <p id="login-error" class="hidden mt-4 text-red-400 text-center text-sm"></p>
-        <p class="mt-6 text-center text-xs text-panel-dim">Hytale Panel v4.0.0</p>
+        <p class="mt-6 text-center text-xs text-panel-dim" id="login-version"></p>
       </div>
     </div>`;
+
+  fetch('/health').then(r => r.json()).then(d => {
+    document.getElementById('login-version').textContent = `Hytale Panel v${d.version}`;
+  }).catch(() => {});
 
   const form = document.getElementById('login-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const errEl = document.getElementById('login-error');
     errEl.classList.add('hidden');
-
-    const user = document.getElementById('login-user').value;
-    const pass = document.getElementById('login-pass').value;
-
     try {
-      const data = await login(user, pass);
+      const data = await login(
+        document.getElementById('login-user').value,
+        document.getElementById('login-pass').value,
+      );
       onSuccess(data);
     } catch (err) {
       errEl.textContent = err.message || 'Verbindungsfehler';

@@ -1,51 +1,56 @@
-// Persistent scheduler using node-cron (survives panel restarts)
+// Persistent scheduler using node-cron
 const cron = require('node-cron');
+const fs = require('fs');
 const config = require('../config');
 const { getScheduler, saveScheduler } = require('../data/settings');
 const { logActivity } = require('../data/store');
-const { isServerActive, runScript, delay } = require('./server-control');
+const { isServerActive, runScript, systemctl, delay } = require('./server-control');
 const { createBackup } = require('./backup');
 const { sendDiscord } = require('./discord');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const fs = require('fs');
-
-const execAsync = promisify(exec);
+const { markPlannedRestart } = require('./planned-restart');
 
 let restartJob = null;
 let backupJob = null;
 
-/**
- * (Re)schedule auto-restart and auto-backup based on current scheduler config.
- */
 function scheduleJobs() {
-  if (restartJob) { restartJob.stop(); restartJob = null; }
-  if (backupJob) { backupJob.stop(); backupJob = null; }
+  restartJob?.stop(); restartJob = null;
+  backupJob?.stop(); backupJob = null;
 
   const scheduler = getScheduler();
 
   if (scheduler.autoRestart && scheduler.restartTime) {
     const [h, m] = scheduler.restartTime.split(':').map(Number);
-    restartJob = cron.schedule(`${m} ${h} * * *`, () => executeRestart());
+    if (Number.isFinite(h) && Number.isFinite(m)) {
+      restartJob = cron.schedule(`${m} ${h} * * *`, () => executeRestart());
+    }
   }
 
   if (scheduler.autoBackup && scheduler.backupTime) {
     const [h, m] = scheduler.backupTime.split(':').map(Number);
-    backupJob = cron.schedule(`${m} ${h} * * *`, () => executeAutoBackup());
+    if (Number.isFinite(h) && Number.isFinite(m)) {
+      backupJob = cron.schedule(`${m} ${h} * * *`, () => executeAutoBackup());
+    }
   }
 }
 
 async function executeRestart() {
   try {
-    const running = await isServerActive();
-    if (!running) return;
+    if (!(await isServerActive())) return;
 
-    await runScript(config.SEND_CMD_SCRIPT, ['say Server-Neustart in 1 Minute!'], 5000).catch(() => {});
-    await delay(60000);
-    await runScript(config.SEND_SAVE_SCRIPT, [], 5000).catch(() => {});
+    const scheduler = getScheduler();
+    const warnMin = Math.max(1, Math.min(30, parseInt(scheduler.restartWarnMinutes, 10) || 5));
 
-    fs.writeFileSync('/tmp/hytale-planned-restart', '');
-    await execAsync('sudo systemctl restart hytale-server', { timeout: 30000 });
+    for (let mins = warnMin; mins > 0; mins--) {
+      if (mins === warnMin || mins === 1 || mins === 5 || mins === 10) {
+        await runScript(config.SEND_CMD_SCRIPT,
+          [`say Server-Neustart in ${mins} ${mins === 1 ? 'Minute' : 'Minuten'}!`],
+          5000).catch(() => {});
+      }
+      await delay(60000);
+    }
+
+    markPlannedRestart();
+    await systemctl('restart').catch(() => {});
 
     const s = getScheduler();
     s.lastRestart = new Date().toISOString();
@@ -61,7 +66,6 @@ async function executeAutoBackup() {
   try {
     const running = await isServerActive();
     const result = await createBackup(running);
-
     if (result.success) {
       const s = getScheduler();
       s.lastBackup = new Date().toISOString();
@@ -76,24 +80,16 @@ async function executeAutoBackup() {
   }
 }
 
-/**
- * On startup, check if a scheduled job was missed while the panel was down.
- */
 function checkMissedJobs() {
   const scheduler = getScheduler();
   const now = new Date();
 
   if (scheduler.autoRestart && scheduler.lastRestart) {
-    const last = new Date(scheduler.lastRestart);
-    const hoursSince = (now - last) / (1000 * 60 * 60);
-    if (hoursSince > 25) {
-      logActivity('system', 'Verpasster Auto-Restart erkannt (Panel war offline)');
-    }
+    const hoursSince = (now - new Date(scheduler.lastRestart)) / 3600000;
+    if (hoursSince > 25) logActivity('system', 'Verpasster Auto-Restart erkannt (Panel war offline)');
   }
-
   if (scheduler.autoBackup && scheduler.lastBackup) {
-    const last = new Date(scheduler.lastBackup);
-    const hoursSince = (now - last) / (1000 * 60 * 60);
+    const hoursSince = (now - new Date(scheduler.lastBackup)) / 3600000;
     if (hoursSince > 25) {
       logActivity('system', 'Verpasstes Auto-Backup erkannt, wird jetzt ausgefuehrt');
       executeAutoBackup();
@@ -101,4 +97,4 @@ function checkMissedJobs() {
   }
 }
 
-module.exports = { scheduleJobs, checkMissedJobs };
+module.exports = { scheduleJobs, checkMissedJobs, executeRestart, executeAutoBackup };

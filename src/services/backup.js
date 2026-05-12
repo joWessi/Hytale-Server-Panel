@@ -1,23 +1,18 @@
-// Shared backup creation logic (used by both manual and auto-backup)
+// Backup creation + retention strategies
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 const config = require('../config');
+const { getSettings } = require('../data/settings');
 const { runScript, delay } = require('./server-control');
 
-const BACKUP_CONFIG_FILES = ['config.json', 'permissions.json', 'whitelist.json', 'bans.json'];
+const BACKUP_CONFIG_FILES = ['config.json', 'permissions.json', 'bans.json'];
 
-/**
- * Create a hot backup: save world, snapshot files, then archive.
- * @param {boolean} isServerRunning - whether the server is currently active
- * @returns {Promise<{name: string, success: boolean, message?: string}>}
- */
 async function createBackup(isServerRunning) {
   if (!fs.existsSync(config.SERVER_DIR) || fs.readdirSync(config.SERVER_DIR).length === 0) {
     return { name: '', success: false, message: 'Server-Ordner leer' };
   }
 
-  // Hot backup: trigger world save without stopping
   if (isServerRunning) {
     try { await runScript(config.SEND_SAVE_SCRIPT, [], 5000); } catch { /* ignore */ }
     await delay(10000);
@@ -35,7 +30,6 @@ async function createBackup(isServerRunning) {
     const archive = archiver('zip', { zlib: { level: 6 } });
     archive.pipe(output);
 
-    // Snapshot to temp dir for consistency during hot backup
     if (isServerRunning && fs.existsSync(universeDir)) {
       try {
         fs.mkdirSync(tempDir, { recursive: true });
@@ -46,7 +40,6 @@ async function createBackup(isServerRunning) {
         });
         addToArchive(archive, tempDir);
       } catch {
-        // Fallback: archive directly (less consistent but better than nothing)
         addToArchiveDirect(archive, universeDir);
       }
     } else {
@@ -60,7 +53,7 @@ async function createBackup(isServerRunning) {
 
     output.on('close', () => {
       cleanupTemp(tempDir);
-      rotateBackups();
+      applyRetention();
       resolve({ name, success: true });
     });
 
@@ -88,23 +81,73 @@ function addToArchiveDirect(archive, universeDir) {
 function cleanupTemp(tempDir) {
   try {
     if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch { /* ignore cleanup errors */ }
+  } catch { /* ignore */ }
 }
 
-/**
- * Remove oldest backups beyond MAX_BACKUPS limit.
- */
-function rotateBackups() {
-  if (!fs.existsSync(config.BACKUPS_DIR)) return;
-  const backups = fs.readdirSync(config.BACKUPS_DIR)
+function listBackups() {
+  if (!fs.existsSync(config.BACKUPS_DIR)) return [];
+  return fs.readdirSync(config.BACKUPS_DIR)
     .filter(f => f.endsWith('.zip'))
-    .map(name => ({ name, time: fs.statSync(path.join(config.BACKUPS_DIR, name)).mtime.getTime() }))
-    .sort((a, b) => b.time - a.time);
+    .map(name => {
+      const stat = fs.statSync(path.join(config.BACKUPS_DIR, name));
+      return { name, size: stat.size, mtime: stat.mtime.getTime() };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+}
 
-  while (backups.length > config.MAX_BACKUPS) {
-    const old = backups.pop();
-    try { fs.unlinkSync(path.join(config.BACKUPS_DIR, old.name)); } catch { /* ignore */ }
+function applyRetention() {
+  const settings = getSettings();
+  if (settings.backupRetention === 'gfs') {
+    applyGFSRetention();
+  } else {
+    applyFIFORetention(parseInt(settings.maxBackups, 10) || config.DEFAULT_MAX_BACKUPS);
   }
 }
 
-module.exports = { createBackup, rotateBackups };
+function applyFIFORetention(maxBackups) {
+  const backups = listBackups();
+  for (const old of backups.slice(maxBackups)) {
+    try { fs.unlinkSync(path.join(config.BACKUPS_DIR, old.name)); } catch {}
+  }
+}
+
+// GFS: keep last 7 daily, last 4 weekly (Sunday), last 6 monthly (1st of month)
+function applyGFSRetention() {
+  const backups = listBackups();
+  const keep = new Set();
+
+  // Bucket each backup
+  const byDay = new Map();
+  const byWeek = new Map();
+  const byMonth = new Map();
+
+  for (const b of backups) {
+    const d = new Date(b.mtime);
+    const dayKey = d.toISOString().substring(0, 10);
+    const weekKey = `${d.getUTCFullYear()}-W${getWeekNumber(d)}`;
+    const monthKey = d.toISOString().substring(0, 7);
+
+    if (!byDay.has(dayKey)) byDay.set(dayKey, b.name);
+    if (!byWeek.has(weekKey)) byWeek.set(weekKey, b.name);
+    if (!byMonth.has(monthKey)) byMonth.set(monthKey, b.name);
+  }
+
+  [...byDay.values()].slice(0, 7).forEach(n => keep.add(n));
+  [...byWeek.values()].slice(0, 4).forEach(n => keep.add(n));
+  [...byMonth.values()].slice(0, 6).forEach(n => keep.add(n));
+
+  for (const b of backups) {
+    if (!keep.has(b.name)) {
+      try { fs.unlinkSync(path.join(config.BACKUPS_DIR, b.name)); } catch {}
+    }
+  }
+}
+
+function getWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+module.exports = { createBackup, listBackups, applyRetention };

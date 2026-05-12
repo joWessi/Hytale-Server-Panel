@@ -1,31 +1,29 @@
-// Backup routes: list, create, download, delete, restore
+// Backup routes
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { promisify } = require('util');
 const config = require('../config');
 const { auth, requirePerm } = require('../middleware/auth');
+const { downloadLimiter } = require('../middleware/security');
 const { logActivity } = require('../data/store');
-const { getScheduler, saveScheduler } = require('../data/settings');
+const { getSettings, getScheduler, saveScheduler } = require('../data/settings');
 const { sendDiscord } = require('../services/discord');
-const { createBackup } = require('../services/backup');
+const { createBackup, listBackups } = require('../services/backup');
 const { isWithinDir } = require('./files');
 const sc = require('../services/server-control');
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const router = express.Router();
 
 router.get('/backups', auth, requirePerm('backups.read'), (req, res) => {
-  if (!fs.existsSync(config.BACKUPS_DIR)) return res.json({ backups: [] });
-  const backups = fs.readdirSync(config.BACKUPS_DIR)
-    .filter(f => f.endsWith('.zip'))
-    .map(name => {
-      const stat = fs.statSync(path.join(config.BACKUPS_DIR, name));
-      return { name, size: stat.size, created: stat.mtime };
-    })
-    .sort((a, b) => new Date(b.created) - new Date(a.created));
-  res.json({ backups });
+  const settings = getSettings();
+  res.json({
+    backups: listBackups().map(b => ({ name: b.name, size: b.size, created: new Date(b.mtime) })),
+    maxBackups: settings.maxBackups,
+    retention: settings.backupRetention,
+  });
 });
 
 router.post('/backups', auth, requirePerm('backups.manage'), async (req, res) => {
@@ -42,13 +40,13 @@ router.post('/backups', auth, requirePerm('backups.manage'), async (req, res) =>
   res.json({ success: result.success, message: result.message });
 });
 
-router.get('/backups/download', auth, requirePerm('backups.read'), (req, res) => {
+router.get('/backups/download', auth, requirePerm('backups.read'), downloadLimiter, (req, res) => {
   const name = req.query.name;
   if (!name) return res.status(400).json({ error: 'Kein Name angegeben' });
   const fullPath = path.resolve(config.BACKUPS_DIR, name);
   if (!isWithinDir(config.BACKUPS_DIR, fullPath)) return res.status(403).json({ error: 'Zugriff verweigert' });
-  if (fs.existsSync(fullPath)) res.download(fullPath);
-  else res.status(404).json({ error: 'Nicht gefunden' });
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Nicht gefunden' });
+  res.download(fullPath);
 });
 
 router.delete('/backups/:name', auth, requirePerm('backups.manage'), (req, res) => {
@@ -66,31 +64,37 @@ router.post('/backups/restore/:name', auth, requirePerm('backups.manage'), async
   if (!isWithinDir(config.BACKUPS_DIR, fullPath)) return res.status(403).json({ error: 'Zugriff verweigert' });
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup nicht gefunden' });
 
+  const tempDir = `/tmp/backup-restore-${Date.now()}`;
   try {
     const wasRunning = await sc.isServerActive();
     if (wasRunning) {
-      await sc.systemctl('stop');
+      await sc.systemctl('stop').catch(() => {});
       for (let i = 0; i < 30; i++) {
         if (!(await sc.isServerActive())) break;
         await sc.delay(1000);
       }
     }
 
-    const tempDir = `/tmp/backup-restore-${Date.now()}`;
     fs.mkdirSync(tempDir, { recursive: true });
-    await execAsync(`unzip -o "${fullPath}" -d "${tempDir}"`, { timeout: 120000 });
+    await execFileAsync('unzip', ['-o', fullPath, '-d', tempDir], { timeout: 120000 });
 
-    // Remove whitelist from backup (panel is source of truth)
+    // Whitelist is panel-managed, never restore from backup
     const extractedWhitelist = path.join(tempDir, 'whitelist.json');
     if (fs.existsSync(extractedWhitelist)) fs.unlinkSync(extractedWhitelist);
 
-    await execAsync(`cp -rf "${tempDir}/"* "${config.SERVER_DIR}/"`, { timeout: 60000 });
-    await execAsync(`chown -R hytale:hytale "${config.SERVER_DIR}"`, { timeout: 30000 });
-    fs.rmSync(tempDir, { recursive: true, force: true });
-
-    if (wasRunning) {
-      await sc.systemctl('start');
+    // Copy contents into SERVER_DIR
+    for (const entry of fs.readdirSync(tempDir)) {
+      const src = path.join(tempDir, entry);
+      const dst = path.join(config.SERVER_DIR, entry);
+      if (fs.statSync(src).isDirectory()) {
+        fs.cpSync(src, dst, { recursive: true, force: true });
+      } else {
+        fs.copyFileSync(src, dst);
+      }
     }
+    await execFileAsync('chown', ['-R', 'hytale:hytale', config.SERVER_DIR], { timeout: 30000 }).catch(() => {});
+
+    if (wasRunning) await sc.systemctl('start').catch(() => {});
 
     logActivity(req.user.username, `Backup wiederhergestellt: ${req.params.name}`);
     sendDiscord(`Backup wiederhergestellt: ${req.params.name}`, 15105570);
@@ -98,6 +102,8 @@ router.post('/backups/restore/:name', auth, requirePerm('backups.manage'), async
   } catch (e) {
     logActivity(req.user.username, `Restore fehlgeschlagen: ${e.message}`);
     res.status(500).json({ error: e.message });
+  } finally {
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   }
 });
 
