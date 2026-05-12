@@ -53,13 +53,27 @@ const server = app.listen(config.PORT, config.BIND_HOST, () => {
   console.log(`Hytale Panel v${pkg.version} running on ${config.BIND_HOST}:${config.PORT}`);
 });
 
-const wssConsole = new WebSocket.Server({ server, path: '/ws/console' });
-const { setupConsoleWebSocket } = require('./routes/console');
-setupConsoleWebSocket(wssConsole);
+// Multiple WS endpoints on one HTTP server: use noServer + manual dispatch
+// (two ws.Server instances both listening on `upgrade` race each other).
+const wssConsole = new WebSocket.Server({ noServer: true });
+const wssSetup = new WebSocket.Server({ noServer: true });
 
-const wssSetup = new WebSocket.Server({ server, path: '/ws/setup' });
+const { setupConsoleWebSocket } = require('./routes/console');
 const { setupSetupWebSocket } = require('./routes/setup');
+setupConsoleWebSocket(wssConsole);
 setupSetupWebSocket(wssSetup);
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url, 'http://x');
+  if (pathname === '/ws/console') {
+    wssConsole.handleUpgrade(req, socket, head, (ws) => wssConsole.emit('connection', ws, req));
+  } else if (pathname === '/ws/setup') {
+    wssSetup.handleUpgrade(req, socket, head, (ws) => wssSetup.emit('connection', ws, req));
+  } else {
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+  }
+});
 
 const { scheduleJobs, checkMissedJobs } = require('./services/scheduler');
 const { startMonitoring } = require('./services/metrics');
